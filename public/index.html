@@ -1,0 +1,610 @@
+<meta charset="utf-8">
+<title>Zeroleak — watch the exam paper being born</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg:#ffffff; --ink:#111113; --muted:#6b7280; --faint:#9ca3af; --border:#e7e7e9;
+    --card:#fafafa; --green:#0d9463; --greenbg:#e7f6ef; --red:#d13438; --redbg:#fdecec;
+    --amber:#8a6116; --amberbg:#fff8eb; --mono:ui-monospace,Menlo,monospace;
+  }
+  * { box-sizing:border-box; margin:0; }
+  body {
+    background:var(--bg); color:var(--ink);
+    font:16px/1.6 'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+    -webkit-font-smoothing:antialiased; padding:40px 24px 80px; max-width:1280px; margin:0 auto;
+  }
+  header { margin-bottom:32px; display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; }
+  .wordmark { font-size:26px; font-weight:800; letter-spacing:-.02em; }
+  .wordmark i { font-style:normal; color:var(--muted); font-weight:400; }
+  .tagline { color:var(--muted); margin-top:4px; max-width:62ch; }
+  a.plink { text-decoration:none; background:var(--ink); color:#fff; padding:10px 22px; border-radius:999px; font-size:14px; font-weight:600; }
+  a.plink:hover { opacity:.85; }
+  .grid { display:grid; grid-template-columns:420px 1fr; gap:20px; align-items:start; }
+  @media (max-width:980px){ .grid{grid-template-columns:1fr} }
+  .card { background:#fff; border:1px solid var(--border); border-radius:16px; padding:22px; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+  .card + .card { margin-top:20px; }
+  .step { display:inline-block; font-size:11.5px; font-weight:700; color:var(--muted); background:var(--card); border:1px solid var(--border); border-radius:999px; padding:3px 11px; margin-bottom:10px; letter-spacing:.04em; }
+  .card h2 { font-size:17px; font-weight:700; letter-spacing:-.01em; }
+  .card .sub { color:var(--muted); font-size:14px; margin:4px 0 16px; }
+  button { background:var(--ink); color:#fff; border:0; border-radius:999px; padding:11px 22px; font:600 14px 'Inter',system-ui,sans-serif; cursor:pointer; }
+  button:hover { opacity:.85; }
+  .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  input[type=number] { width:76px; border:1px solid var(--border); border-radius:10px; padding:10px 12px; font:15px 'Inter',system-ui,sans-serif; }
+  label { font-size:14px; color:var(--muted); }
+  .big { font-size:52px; font-weight:800; letter-spacing:-.03em; text-align:center; padding:14px 0 4px; font-variant-numeric:tabular-nums; }
+  .big.live { color:var(--green); }
+  .phase { text-align:center; color:var(--muted); font-size:13px; min-height:20px; }
+
+  .officials { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:6px; }
+  @media (max-width:1180px){ .officials{grid-template-columns:1fr 1fr} }
+  .official { border:1px solid var(--border); border-radius:12px; padding:10px 12px; font-size:12px; line-height:1.4; background:#fff; }
+  .official b { display:block; font-size:12.5px; letter-spacing:-.01em; }
+  .official span { color:var(--muted); }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; background:#d1d5db; vertical-align:1px; }
+  .official.submitted { border-color:#bfe6d4; background:var(--greenbg); }
+  .official.submitted .dot { background:var(--green); }
+  .official.offline { border-color:#f3c9ca; background:var(--redbg); opacity:.85; }
+  .official.offline .dot { background:var(--red); }
+  .progress { margin-top:12px; font-size:13.5px; font-weight:600; }
+  .progress span { color:var(--muted); font-weight:400; }
+  .beacon { margin-top:12px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; font-size:13px; display:none; }
+  .beacon b { font-size:13px; }
+  .beacon a { color:var(--muted); }
+  .beacon .val { font:11px var(--mono); word-break:break-all; color:var(--green); margin-top:4px; }
+
+  .centers { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; }
+  .screen { border:1px solid var(--border); border-radius:14px; padding:16px; min-height:190px; background:#fff; }
+  .screen h3 { font-size:14px; font-weight:700; }
+  .screen .cid { color:var(--muted); font-weight:400; font-size:12px; }
+  .lockmsg { margin-top:14px; background:var(--amberbg); border:1px dashed #e7c98a; border-radius:10px; color:var(--amber); font-size:13px; text-align:center; padding:30px 10px; font-weight:600; }
+  .q { border-top:1px solid var(--border); padding:11px 0; font-size:13.5px; }
+  .q:first-of-type { border-top:0; }
+  .q b { font-size:11.5px; color:var(--muted); font-weight:600; display:block; margin-bottom:2px; }
+  .q ol { margin:5px 0 0 20px; color:var(--muted); font-size:13px; }
+
+  .checks { margin-top:4px; }
+  .check { border-top:1px solid var(--border); padding:12px 0; }
+  .check:first-child { border-top:0; }
+  .check .head { display:flex; gap:10px; align-items:baseline; }
+  .cicon { font-weight:800; width:20px; flex:none; text-align:center; }
+  .cicon.pending { color:var(--faint); } .cicon.ok { color:var(--green); } .cicon.fail { color:var(--red); } .cicon.warn { color:var(--amber); }
+  .check .name { font-weight:600; font-size:14.5px; }
+  .check .expl { color:var(--muted); font-size:13px; margin:2px 0 0 30px; }
+  .check details { margin:6px 0 0 30px; font-size:12px; color:var(--muted); }
+  .check summary { cursor:pointer; font-size:12px; color:var(--faint); }
+  .check .tech { font:11px var(--mono); word-break:break-all; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:7px 9px; margin-top:6px; white-space:pre-wrap; }
+  .allgood { display:none; margin-top:14px; background:var(--greenbg); border:1px solid #bfe6d4; color:var(--green); border-radius:12px; padding:13px 16px; font-weight:600; font-size:14.5px; }
+  .allbad { display:none; margin-top:14px; background:var(--redbg); border:1px solid #f3c9ca; color:var(--red); border-radius:12px; padding:13px 16px; font-weight:600; font-size:14.5px; }
+
+  .ledger { font:11.5px var(--mono); background:#0f1115; color:#c9d1d9; border-radius:12px; padding:14px; max-height:280px; overflow-y:auto; line-height:1.75; }
+  .ledger .ev b { color:#7ee2a8; font-weight:600; }
+  .ledger .ev i { color:#8b949e; font-style:normal; }
+  .ledger .ev .h { color:#4d5566; }
+  .chainbadge { display:none; margin-top:10px; font-size:12.5px; font-weight:600; color:var(--green); background:var(--greenbg); border-radius:999px; padding:4px 12px; }
+  .chainbadge.broken { color:var(--red); background:var(--redbg); }
+
+  textarea { width:100%; min-height:70px; border:1px solid var(--border); border-radius:12px; padding:12px; font:13px var(--mono); resize:vertical; }
+  .result { margin-top:12px; font-size:14px; }
+  .badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:12.5px; font-weight:700; }
+  .b-ok { background:var(--greenbg); color:var(--green); }
+  .b-bad { background:var(--redbg); color:var(--red); }
+
+  /* glossary tooltips */
+  .gl { border-bottom:1.5px dotted currentColor; cursor:help; }
+  #gtip {
+    position:fixed; z-index:60; max-width:300px; text-align:left;
+    background:#0f1115; color:#e6edf3; font:400 13px/1.55 'Inter',system-ui,sans-serif;
+    padding:12px 14px; border-radius:12px; box-shadow:0 10px 34px rgba(0,0,0,.28);
+    opacity:0; transform:translateY(6px); pointer-events:none; transition:opacity .14s ease, transform .14s ease;
+  }
+  #gtip.on { opacity:1; transform:none; }
+  #gtip b { color:#7ee2a8; font-weight:700; }
+</style>
+
+<header>
+  <div>
+    <div class="wordmark">Zeroleak <i>· glass room</i></div>
+    <div class="tagline"><b>Don't trust us — watch it.</b> The ceremony, the unlock, the proofs: everything below happens live, and your own browser re-checks the math independently — pinning what it witnesses <i>before</i> the unlock and holding the server to it afterwards.</div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <a class="plink" href="/source" style="background:#fff;color:#111113;border:1px solid #e7e7e9">Read the source →</a>
+    <a class="plink" href="/infographic" style="background:#fff;color:#111113;border:1px solid #e7e7e9">How it works →</a>
+    <a class="plink" href="/cluster">Live cluster →</a>
+    <a class="plink" href="/present">View the presentation →</a>
+  </div>
+</header>
+
+<div class="grid">
+  <div>
+    <div class="card">
+      <span class="step">STEP 1</span>
+      <h2>Schedule an exam</h2>
+      <div class="sub">A fairness receipt is published — and pinned by this page — immediately. The paper itself won't exist until the countdown hits zero. Minimum 35s, so the world-randomness round used at zero is provably younger than the receipt.</div>
+      <div class="row">
+        <label>Unlock in</label>
+        <input type="number" id="secs" value="40" min="35">
+        <label>seconds</label>
+        <button id="schedule">Start</button>
+      </div>
+      <div class="big" id="countdown">—</div>
+      <div class="phase" id="phase"></div>
+    </div>
+
+    <div class="card">
+      <span class="step">STEP 2</span>
+      <h2>The key ceremony</h2>
+      <div class="sub">Nine officials, nine cities, one fragment each. Any five make the key — at zero, never before. Watch the fragments arrive.</div>
+      <div class="officials" id="officials"></div>
+      <div class="progress" id="progress"></div>
+      <div class="beacon" id="beacon"></div>
+    </div>
+
+    <div class="card">
+      <span class="step">STEP 5</span>
+      <h2>Leak tracer</h2>
+      <div class="sub">Copy a question from any center screen, paste it here — it names the center it was taken from.</div>
+      <textarea id="leak" placeholder="Paste a copied question…"></textarea>
+      <div class="row" style="margin-top:12px"><button id="trace">Trace it</button></div>
+      <div class="result" id="traceResult"></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <span class="step">STEP 3</span>
+      <h2>Exam center screens</h2>
+      <div class="sub">All centers unlock in the same second — nobody gets the paper early, because there is no paper early.</div>
+      <div class="centers" id="centers"></div>
+    </div>
+
+    <div class="card">
+      <span class="step">STEP 4</span>
+      <h2>Your browser checks the math — not our word</h2>
+      <div class="sub">After the unlock, everything is revealed and this page re-verifies each claim <b>on your device</b>, from scratch, against the receipt it pinned <b>before</b> the unlock. If the server lied about anything, you'll see a red ✗ right here.</div>
+      <div class="checks" id="checks"></div>
+      <div class="allgood" id="allgood"></div>
+      <div class="allbad" id="allbad">✗ At least one claim failed independent verification — this exam should not be trusted.</div>
+    </div>
+
+    <div class="card">
+      <h2>Public audit ledger</h2>
+      <div class="sub">Every event, hash-chained and witnessed live by this page. Rewriting history after the fact would break the chain this page has already seen.</div>
+      <div class="ledger" id="ledger"><span style="color:#8b949e">Waiting for an exam…</span></div>
+      <span class="chainbadge" id="chainbadge"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const enc = s => new TextEncoder().encode(s);
+const bytesToHex = b => [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+const hexToBytes = h => { const a = new Uint8Array(h.length / 2); for (let i = 0; i < a.length; i++) a[i] = parseInt(h.substr(i * 2, 2), 16); return a; };
+async function sha256Hex(str) { return bytesToHex(new Uint8Array(await crypto.subtle.digest('SHA-256', enc(str)))); }
+async function sha256Bytes(bytes) { return new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)); }
+async function hmacHex(keyStr, msg) {
+  const key = await crypto.subtle.importKey('raw', enc(keyStr), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return bytesToHex(new Uint8Array(await crypto.subtle.sign('HMAC', key, enc(msg))));
+}
+const stripWM = s => s.replace(/[​‌‍]/g, '');
+function decodeWM(text) {
+  const m = text.indexOf('‍');
+  if (m === -1) return null;
+  let bits = '';
+  for (const ch of text.slice(m + 1)) {
+    if (ch === '​') bits += '0';
+    else if (ch === '‌') bits += '1';
+    else if (bits.length >= 8) break;
+  }
+  let out = '';
+  for (let i = 0; i + 8 <= bits.length; i += 8) out += String.fromCharCode(parseInt(bits.slice(i, i + 8), 2));
+  return out || null;
+}
+
+// --- Same Shamir math as the server, re-implemented here so YOUR device
+// --- proves the fragments really combine into the secret.
+const P = (1n << 256n) - 189n;
+function modpow(b, e, m) { let r = 1n; b %= m; while (e > 0n) { if (e & 1n) r = r * b % m; b = b * b % m; e >>= 1n; } return r; }
+const modinv = a => modpow(((a % P) + P) % P, P - 2n, P);
+function shamirCombine(shares) {
+  let secret = 0n;
+  for (const si of shares) {
+    let num = 1n, den = 1n; const xi = BigInt(si.x);
+    for (const sj of shares) {
+      if (sj.x === si.x) continue; const xj = BigInt(sj.x);
+      num = num * ((P - xj) % P) % P;
+      den = den * (((xi - xj) % P + P) % P) % P;
+    }
+    secret = (secret + BigInt('0x' + si.y) * num % P * modinv(den)) % P;
+  }
+  return secret.toString(16).padStart(64, '0');
+}
+
+// --- Same deterministic generator as the server (16-bit draws, WebCrypto).
+function makeRng(seedHex) {
+  let state = hexToBytes(seedHex), pool = [], i = 0;
+  return async () => {
+    if (i + 2 > pool.length) { state = await sha256Bytes(state); pool = [...state]; i = 0; }
+    const v = (pool[i] << 8) | pool[i + 1];
+    i += 2;
+    return v / 65536;
+  };
+}
+async function shuffle(arr, rand) {
+  const a = arr.slice();
+  for (let k = a.length - 1; k > 0; k--) {
+    const j = Math.floor(await rand() * (k + 1));
+    [a[k], a[j]] = [a[j], a[k]];
+  }
+  return a;
+}
+async function rebuildPaper(seed, bank, centerId) {
+  const rng = makeRng(seed);
+  const paper = [];
+  for (const subject of ['Physics', 'Chemistry', 'Biology']) {
+    const qs = (await shuffle(bank.filter(q => q.subject === subject), rng)).slice(0, 5);
+    for (const q of qs) {
+      const order = await shuffle([0, 1, 2, 3], rng);
+      paper.push({ subject, text: q.text, options: order.map(x => q.options[x]) });
+    }
+  }
+  const rng2 = makeRng(await hmacHex(seed, 'order:' + centerId));
+  const bySubject = {};
+  for (const q of paper) (bySubject[q.subject] ||= []).push(q);
+  const ordered = [];
+  for (const s of ['Physics', 'Chemistry', 'Biology']) ordered.push(...await shuffle(bySubject[s], rng2));
+  return ordered;
+}
+
+// ---------------------------------------------------------------------------
+// UI state
+// ---------------------------------------------------------------------------
+let centers = [], evSince = 0, evLog = [], chainOk = true, verified = false;
+// The pin: what THIS PAGE witnessed before the unlock. Verification compares
+// the post-unlock reveal against these values, not against what the server
+// says later.
+let pinned = null;
+async function api(p, opts) { const r = await fetch(p, opts); return r.json(); }
+
+function renderCenters() {
+  $('centers').innerHTML = centers.map(c => `
+    <div class="screen" id="scr-${c.id}">
+      <h3>${c.name} <span class="cid">· ${c.id}</span></h3>
+      <div class="lockmsg">Sealed — no paper exists yet</div>
+    </div>`).join('');
+}
+async function loadPapers() {
+  for (const c of centers) {
+    const p = await api('/api/paper?center=' + c.id);
+    const el = $('scr-' + c.id);
+    if (p.questions && el.querySelector('.lockmsg')) {
+      el.querySelector('.lockmsg').remove();
+      el.insertAdjacentHTML('beforeend', p.questions.map(q =>
+        `<div class="q"><b>Question ${q.n} · ${q.subject}</b>${q.text}<ol type="A">${q.options.map(o => `<li>${o}</li>`).join('')}</ol></div>`
+      ).join(''));
+    }
+  }
+}
+
+function renderOfficials(list, threshold) {
+  $('officials').innerHTML = list.map(o => `
+    <div class="official ${o.status}">
+      <b><span class="dot"></span>${o.name}</b>
+      <span>${o.org} · ${o.city}</span>
+    </div>`).join('');
+  const n = list.filter(o => o.status === 'submitted').length;
+  const off = list.filter(o => o.status === 'offline').length;
+  $('progress').innerHTML = `${n} fragment${n === 1 ? '' : 's'} in · ${threshold} needed
+    <span>${off ? ` — ${off} device${off === 1 ? '' : 's'} offline, and it doesn't matter` : ''}</span>`;
+}
+
+const CHECKS = [
+  { id: 'receipt',  name: 'The fairness receipt matches what this page pinned' },
+  { id: 'bank',     name: 'The question bank is the committed one' },
+  { id: 'fragments',name: 'Fragment fingerprints match their pre-published hashes' },
+  { id: 'shamir',   name: 'The fragments really rebuild the secret' },
+  { id: 'beacon',   name: 'The world randomness is real — and younger than the receipt' },
+  { id: 'seed',     name: 'The seed is honest' },
+  { id: 'paper',    name: 'The papers regenerate identically, watermarks included' },
+  { id: 'ledger',   name: 'The audit ledger this page witnessed is intact' },
+];
+const checkState = {};
+function renderChecks(reset) {
+  if (reset) {
+    for (const c of CHECKS) checkState[c.id] = 'pending';
+    $('checks').innerHTML = CHECKS.map(c => `
+      <div class="check" id="chk-${c.id}">
+        <div class="head"><span class="cicon pending" id="ci-${c.id}">○</span><span class="name">${c.name}</span></div>
+        <div class="expl" id="ce-${c.id}">Waiting for the unlock…</div>
+        <details id="cd-${c.id}" style="display:none"><summary>technical detail</summary><div class="tech" id="ct-${c.id}"></div></details>
+      </div>`).join('');
+    $('allgood').style.display = 'none';
+    $('allbad').style.display = 'none';
+  }
+}
+function setCheck(id, state, expl, tech) {
+  checkState[id] = state;
+  const icon = $('ci-' + id);
+  icon.className = 'cicon ' + state;
+  icon.textContent = state === 'ok' ? '✓' : state === 'fail' ? '✗' : state === 'warn' ? '!' : '○';
+  if (expl) $('ce-' + id).textContent = expl;
+  if (tech) { $('cd-' + id).style.display = 'block'; $('ct-' + id).textContent = tech; }
+}
+
+// ---------------------------------------------------------------------------
+// The independent verification — runs entirely in this browser
+// ---------------------------------------------------------------------------
+async function check(id, fn) {
+  try { await fn(); }
+  catch (e) { setCheck(id, 'fail', 'Verification errored: ' + e.message + ' — treat as unverified.'); }
+}
+
+async function runVerification(s) {
+  const r = s.reveal;
+  const pin = pinned;
+
+  // 1. Fairness receipt — against the PINNED pre-unlock values.
+  await check('receipt', async () => {
+    const recomputed = await sha256Hex(pin.id + '|' + pin.t0 + '|' + pin.scheduledAt + '|' + pin.bankHash + '|' + r.secretHash + '|' + pin.shareCommitments.join(','));
+    const secretHashOk = (await sha256Hex(r.secret)) === r.secretHash;
+    const mathOk = recomputed === pin.commitment && secretHashOk;
+    const tech = `pinned    : ${pin.commitment}\nrecomputed: ${recomputed}\nsha256(secret) matches secretHash: ${secretHashOk}\nwitnessed : ${pin.witnessed === 'pre' ? 'before the unlock (live pin)' : 'AFTER the unlock'}`;
+    if (!mathOk) setCheck('receipt', 'fail', 'MISMATCH — the revealed values do not match the receipt this page pinned before the unlock. Something was swapped.', tech);
+    else if (pin.witnessed !== 'pre') setCheck('receipt', 'warn', 'The math matches — but this page only loaded after the unlock, so it couldn’t witness the receipt beforehand. Watch a full run from the start for the complete guarantee.', tech);
+    else setCheck('receipt', 'ok', 'Recomputed from the revealed values and compared to the receipt this page saw before the unlock. Bank, ceremony, timing — all bound, nothing swapped.', tech);
+  });
+
+  // 2. Question bank vs committed hash — hashed HERE, not taken on faith.
+  const { bank } = await api('/api/bank');
+  await check('bank', async () => {
+    const h = await sha256Hex(JSON.stringify(bank));
+    setCheck('bank', h === pin.bankHash ? 'ok' : 'fail',
+      h === pin.bankHash ? 'Hashed the served question bank in your browser — it is byte-for-byte the bank the receipt committed to.' : 'MISMATCH — the served bank is NOT the committed one. Questions were swapped.',
+      `committed : ${pin.bankHash}\nrecomputed: ${h}`);
+  });
+
+  // 3. Fragment fingerprints — against the PINNED commitments.
+  await check('fragments', async () => {
+    let ok = r.shares.length >= s.threshold;
+    for (const sh of r.shares) if (await sha256Hex(sh.y) !== pin.shareCommitments[sh.x - 1]) ok = false;
+    setCheck('fragments', ok ? 'ok' : 'fail',
+      ok ? `${r.shares.length} revealed fragments checked against the fingerprints pinned before the exam.` : 'MISMATCH — a revealed fragment differs from its pre-published fingerprint.',
+      r.shares.map(sh => `official ${sh.x}: sha256(fragment) = ${pin.shareCommitments[sh.x - 1].slice(0, 32)}…`).join('\n'));
+  });
+
+  // 4. Shamir recombination — TWO different subsets must agree.
+  await check('shamir', async () => {
+    const a = shamirCombine(r.shares.slice(0, s.threshold));
+    const b = r.shares.length > s.threshold ? shamirCombine(r.shares.slice(-s.threshold)) : a;
+    const ok = a === r.secret && b === r.secret;
+    setCheck('shamir', ok ? 'ok' : 'fail',
+      ok ? `Your browser combined ${r.shares.length > s.threshold ? 'two different subsets of' : ''} ${s.threshold} fragments with the same Shamir math — ${r.shares.length > s.threshold ? 'both give' : 'and got'} the same ceremony secret.` : 'MISMATCH — fragments do not consistently reconstruct the claimed secret.',
+      `subset A  : ${a}\nsubset B  : ${b}\nclaimed   : ${r.secret}`);
+  });
+
+  // 5. Beacon — ask drand directly AND verify the round is younger than the
+  // receipt (a stale round would let a secret-holder precompute the paper).
+  await check('beacon', async () => {
+    if (r.beacon.source !== 'drand') {
+      setCheck('beacon', 'warn', 'drand was unreachable at T-0, so this run used local fallback randomness — a real deployment would delay the unlock instead. The freshness guarantee does not hold for this run.', r.beacon.randomness);
+      return;
+    }
+    const info = await api('https://api.drand.sh/info');
+    const d = await api('https://api.drand.sh/public/' + r.beacon.round);
+    const roundTime = (info.genesis_time + (r.beacon.round - 1) * info.period) * 1000;
+    const matches = d.randomness === r.beacon.randomness;
+    const fresh = roundTime >= pin.scheduledAt;
+    const tech = `drand round ${r.beacon.round}\ndrand says : ${d.randomness}\nserver said: ${r.beacon.randomness}\nround time : ${new Date(roundTime).toISOString()}\nreceipt at : ${new Date(pin.scheduledAt).toISOString()}\nfresh      : ${fresh}`;
+    if (!matches) setCheck('beacon', 'fail', 'MISMATCH — drand disagrees with the server’s claimed randomness. The server invented its own “world randomness”.', tech);
+    else if (!fresh) setCheck('beacon', 'fail', 'STALE ROUND — the randomness existed before the receipt was published, so a secret-holder could have precomputed the paper. This defeats the whole guarantee.', tech);
+    else setCheck('beacon', 'ok', `drand round ${r.beacon.round}, fetched by your browser straight from api.drand.sh — value matches, and the round was produced after the receipt existed. Nobody could know it in advance.`, tech);
+  });
+
+  // 6. Seed derivation
+  await check('seed', async () => {
+    const seed = await sha256Hex(r.secret + '|' + r.beacon.randomness);
+    setCheck('seed', seed === r.seed ? 'ok' : 'fail',
+      seed === r.seed ? 'seed = sha256(ceremony secret + beacon). Recomputed on your device; identical.' : 'MISMATCH — the seed was not derived from the ceremony + beacon as claimed.',
+      `recomputed: ${seed}\nclaimed   : ${r.seed}`);
+  });
+
+  // 7. Paper regeneration + watermark authenticity — the big one.
+  await check('paper', async () => {
+    let ok = true; const detail = [];
+    for (const c of centers) {
+      const served = await api('/api/paper?center=' + c.id);
+      const rebuilt = await rebuildPaper(r.seed, bank, c.id);
+      const contentOk = served.questions.length === rebuilt.length && served.questions.every((q, i) =>
+        stripWM(q.text) === rebuilt[i].text && q.subject === rebuilt[i].subject &&
+        JSON.stringify(q.options) === JSON.stringify(rebuilt[i].options));
+      const wmOk = served.questions.every(q => decodeWM(q.text) === c.id);
+      if (!contentOk || !wmOk) ok = false;
+      detail.push(`${c.id}: ${contentOk ? `all ${rebuilt.length} questions + option orders identical` : 'CONTENT MISMATCH'} · watermark ${wmOk ? 'decodes to ' + c.id + ' on every question' : 'WRONG/MISSING'}`);
+    }
+    setCheck('paper', ok ? 'ok' : 'fail',
+      ok ? 'Your browser rebuilt all three centers’ papers from the seed and the verified bank — a perfect match — and decoded every question’s invisible watermark to the correct center.' : 'MISMATCH — a served paper does not match what the seed produces, or carries a wrong fingerprint.',
+      detail.join('\n'));
+  });
+
+  // 8. Ledger — verified over the events THIS PAGE streamed live.
+  await check('ledger', async () => {
+    let ok = evLog.length > 0, prev = 'GENESIS';
+    for (const ev of evLog) {
+      if (ev.prev !== prev || await sha256Hex(JSON.stringify([ev.n, ev.t, ev.type, ev.detail, ev.prev])) !== ev.hash) { ok = false; break; }
+      prev = ev.hash;
+    }
+    setCheck('ledger', (ok && chainOk) ? 'ok' : 'fail',
+      (ok && chainOk) ? `${evLog.length} events witnessed live by this page, every hash link verified. History cannot be quietly rewritten under a watching page.` : 'CHAIN BROKEN — an event this page witnessed was altered or mislinked.');
+  });
+
+  const states = CHECKS.map(c => checkState[c.id]);
+  const anyFail = states.includes('fail') || states.includes('pending');
+  const warns = states.filter(x => x === 'warn').length;
+  if (anyFail) { $('allbad').style.display = 'block'; $('allgood').style.display = 'none'; }
+  else {
+    $('allgood').textContent = warns
+      ? `✓ Every verifiable claim passed independent checking in your browser (${warns} caveat${warns > 1 ? 's' : ''} noted above).`
+      : '✓ Every claim verified independently by your browser. You didn’t have to trust anyone — that’s the whole point.';
+    $('allgood').style.display = 'block'; $('allbad').style.display = 'none';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Actions + polling
+// ---------------------------------------------------------------------------
+function resetForExam(pin) {
+  pinned = pin; verified = false; evSince = 0; evLog = []; chainOk = true;
+  $('ledger').innerHTML = ''; $('chainbadge').style.display = 'none';
+  $('beacon').style.display = 'none';
+  renderCenters(); renderChecks(true);
+}
+
+$('schedule').onclick = async () => {
+  const d = await api('/api/schedule', { method: 'POST', body: JSON.stringify({ seconds: +$('secs').value }) });
+  // Pin the receipt at the moment we witness it — before the unlock.
+  resetForExam({ id: d.id, t0: d.t0, scheduledAt: d.scheduledAt, commitment: d.commitment, bankHash: d.bankHash, shareCommitments: d.shareCommitments, witnessed: 'pre' });
+};
+
+$('trace').onclick = async () => {
+  const d = await api('/api/trace', { method: 'POST', body: JSON.stringify({ text: $('leak').value }) });
+  $('traceResult').innerHTML = d.traced
+    ? `<span class="badge b-bad">Leak traced</span>&nbsp; It came from <b>${d.centerName}</b> (${d.centerId})`
+    : `<span class="badge b-ok">No fingerprint</span>&nbsp; This text isn't from a live paper`;
+};
+
+setInterval(async () => {
+  const s = await api('/api/status');
+  if (!centers.length) { centers = s.centers; renderCenters(); renderChecks(true); }
+  renderOfficials(s.officials, s.threshold);
+  if (!s.scheduled) return;
+
+  // An exam scheduled elsewhere (another tab/client): pin + reset this page.
+  if (!pinned || pinned.id !== s.id) {
+    resetForExam({ id: s.id, t0: s.t0, scheduledAt: s.scheduledAt, commitment: s.commitment, bankHash: s.bankHash, shareCommitments: s.shareCommitments, witnessed: s.phase === 'countdown' ? 'pre' : 'post' });
+  }
+
+  const dt = Math.ceil((s.t0 - s.now) / 1000);
+  const cd = $('countdown');
+  if (s.phase === 'countdown') {
+    cd.textContent = dt; cd.className = 'big';
+    $('phase').textContent = 'Paper does not exist yet — there is nothing to steal.';
+  } else if (s.phase === 'combining') {
+    cd.textContent = '…'; cd.className = 'big';
+    $('phase').textContent = 'Combining fragments + fetching world randomness…';
+  } else {
+    cd.textContent = 'Live'; cd.className = 'big live';
+    $('phase').textContent = 'The paper was born just now — on every screen at once.';
+    if (s.reveal) {
+      const b = s.reveal.beacon;
+      $('beacon').style.display = 'block';
+      $('beacon').innerHTML = `<b>World randomness mixed in:</b> ${b.source === 'drand'
+        ? `drand round ${b.round} — produced by ~20 independent organisations after the receipt existed. <a href="${b.url}" target="_blank">verify at api.drand.sh ↗</a>`
+        : b.source}<div class="val">${b.randomness}</div>`;
+      loadPapers();
+      if (!verified) { verified = true; runVerification(s); }
+    }
+  }
+}, 1000);
+
+setInterval(async () => {
+  if (!pinned) return;
+  const { events } = await api('/api/events?since=' + evSince);
+  if (!events.length) return;
+  evSince += events.length;
+  const led = $('ledger');
+  for (const ev of events) {
+    // Incremental witness check: each arriving event must extend the chain.
+    const prevHash = evLog.length ? evLog[evLog.length - 1].hash : 'GENESIS';
+    const expected = await sha256Hex(JSON.stringify([ev.n, ev.t, ev.type, ev.detail, ev.prev]));
+    if (ev.prev !== prevHash || expected !== ev.hash) chainOk = false;
+    evLog.push(ev);
+    const t = new Date(ev.t).toLocaleTimeString('en-IN', { hour12: false });
+    led.insertAdjacentHTML('beforeend',
+      `<div class="ev"><i>#${String(ev.n).padStart(2, '0')} ${t}</i> <b>${ev.type}</b> — ${ev.detail} <span class="h">· ${ev.hash.slice(0, 12)}…</span></div>`);
+  }
+  led.scrollTop = led.scrollHeight;
+  const badge = $('chainbadge');
+  badge.style.display = 'inline-block';
+  badge.className = 'chainbadge' + (chainOk ? '' : ' broken');
+  badge.textContent = chainOk ? '✓ chain intact — every link verified in your browser as it arrived' : '✗ CHAIN BROKEN — witnessed history was tampered with';
+}, 1200);
+</script>
+
+<!-- Auto-glossary: underline known technical terms, define on hover/tap. -->
+<script>
+(function () {
+  const G = {
+    t0: "<b>T‑0</b> — the exam's first second (say 2:00:00 PM). The moment the paper is allowed to exist. Before it, everything is sealed and there is nothing to steal.",
+    fragment: "<b>Fragment</b> — one of nine pieces of the key, each held on one official's own device. Any five combine into the key; four reveal nothing at all.",
+    shamir: "<b>Shamir Secret Sharing</b> (1979) — splits a secret into 9 pieces so any 5 rebuild it and 4 tell you nothing. The secret is a point on a curve that only 5 points can pin down.",
+    drand: "<b>drand</b> — a public randomness beacon run by ~20 organisations worldwide, producing a fresh, unpredictable number every 30 seconds. The 2:00 PM value doesn't exist at 1:59 — so no one can know it early.",
+    seed: "<b>Seed</b> — the one random number that picks and shuffles the questions. seed = SHA‑256(ceremony key + drand value). Born at T‑0; never stored before.",
+    receipt: "<b>Fairness receipt</b> — a hash (fingerprint) of the whole setup, published before the exam. It reveals nothing, yet afterwards proves nothing was swapped.",
+    commitreveal: "<b>Commit‑reveal</b> — publish a fingerprint of your choices first (giving nothing away), then reveal the choices later. Anyone re‑computes the fingerprint to confirm nothing changed.",
+    hash: "<b>Hash (SHA‑256)</b> — a one‑way fingerprint of data: easy forwards, impossible to reverse. Identical data gives an identical hash; any tiny change gives a totally different one.",
+    ledger: "<b>Hash‑chained ledger</b> — an audit log where each entry carries the previous entry's hash. Rewrite any past line and every link after it visibly breaks — the idea behind blockchains.",
+    threshold: "<b>Threshold (5‑of‑9)</b> — how many fragments are needed. Fewer than five is useless, so no small group can cheat, and up to four officials can be offline without stopping the exam.",
+    watermark: "<b>Invisible watermark</b> — zero‑width Unicode characters woven through each centre's questions, spelling out that centre's ID. Survives copying, screenshots and retyping, so any leak names its own source."
+  };
+  const RE = /\b(fairness receipt|commit[-‑]reveal|hash[-‑]chained|zero[-‑]width|5[-‑]of[-‑]9|threshold|watermark|fragments?|commitment|shamir|ledger|drand|hash|seed|T[-‑]?0)\b/i;
+  function keyFor(s) {
+    s = s.toLowerCase().replace(/[‑–]/g, '-');
+    if (/^t-?0$/.test(s)) return 't0';
+    if (s.indexOf('fragment') === 0) return 'fragment';
+    if (s === 'shamir') return 'shamir';
+    if (s === 'drand') return 'drand';
+    if (s === 'seed') return 'seed';
+    if (s === 'fairness receipt' || s === 'commitment') return 'receipt';
+    if (s === 'commit-reveal') return 'commitreveal';
+    if (s === 'hash-chained' || s === 'ledger') return 'ledger';
+    if (s === 'hash') return 'hash';
+    if (s === 'threshold' || s === '5-of-9') return 'threshold';
+    if (s === 'watermark' || s === 'zero-width') return 'watermark';
+    return null;
+  }
+  function pass(el) {
+    let changed = false; const seen = new Set(); const nodes = [];
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    while (w.nextNode()) nodes.push(w.currentNode);
+    for (const node of nodes) {
+      const v = node.nodeValue; if (!v.trim()) continue;
+      if (node.parentElement.closest('.gl')) continue;
+      const m = v.match(RE); if (!m) continue;
+      const key = keyFor(m[1]); if (!key || seen.has(key) || !G[key]) continue;
+      seen.add(key);
+      const i = m.index;
+      const span = document.createElement('span');
+      span.className = 'gl'; span.dataset.term = key; span.textContent = v.slice(i, i + m[1].length);
+      const frag = document.createDocumentFragment();
+      if (i > 0) frag.appendChild(document.createTextNode(v.slice(0, i)));
+      frag.appendChild(span);
+      const rest = v.slice(i + m[1].length); if (rest) frag.appendChild(document.createTextNode(rest));
+      node.parentNode.replaceChild(frag, node); changed = true;
+    }
+    return changed;
+  }
+  function runGlossify() {
+    document.querySelectorAll('.tagline,.sub,.hint,.result,.beacon,.progress,.check .name,.check .expl,.allgood,.proof .plabel,.proof .pexpl,.step')
+      .forEach(el => { for (let k = 0; k < 6; k++) if (!pass(el)) break; });
+  }
+  const tip = document.createElement('div'); tip.id = 'gtip'; document.body.appendChild(tip);
+  let cur = null;
+  function show(el) {
+    const g = G[el.dataset.term]; if (!g) return;
+    cur = el; tip.innerHTML = g; tip.classList.add('on');
+    const r = el.getBoundingClientRect(); tip.style.left = '0px'; tip.style.top = '0px';
+    requestAnimationFrame(() => {
+      const t = tip.getBoundingClientRect(); let l = r.left, top = r.bottom + 8;
+      if (l + t.width > innerWidth - 12) l = innerWidth - 12 - t.width; if (l < 12) l = 12;
+      if (top + t.height > innerHeight - 12) top = r.top - 8 - t.height; if (top < 12) top = 12;
+      tip.style.left = l + 'px'; tip.style.top = top + 'px';
+    });
+  }
+  function hide() { cur = null; tip.classList.remove('on'); }
+  document.addEventListener('mouseover', e => { const t = e.target.closest('.gl'); if (t && t !== cur) show(t); });
+  document.addEventListener('mouseout', e => { if (e.target.closest('.gl')) hide(); });
+  document.addEventListener('click', e => { const t = e.target.closest('.gl'); if (t) { e.stopPropagation(); (t === cur) ? hide() : show(t); } else hide(); });
+  runGlossify();
+  setInterval(runGlossify, 1800);   // catch dynamically-added text (checks, ledger, beacon)
+})();
+</script>

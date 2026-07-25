@@ -1,0 +1,188 @@
+<meta charset="utf-8">
+<title>Zeroleak — live cluster</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg:#ffffff; --ink:#111113; --muted:#6b7280; --faint:#9ca3af; --border:#e7e7e9;
+    --card:#fafafa; --green:#0d9463; --greenbg:#e7f6ef; --red:#d13438; --redbg:#fdecec;
+    --amber:#8a6116; --amberbg:#fff8eb; --mono:ui-monospace,Menlo,Consolas,monospace;
+    --term:#0f1115;
+  }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--ink); font:15px/1.55 'Inter',system-ui,-apple-system,sans-serif; -webkit-font-smoothing:antialiased; padding:32px 22px 70px; max-width:1400px; margin:0 auto; }
+  header { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px; margin-bottom:22px; }
+  .wordmark { font-size:24px; font-weight:800; letter-spacing:-.02em; }
+  .wordmark i { font-style:normal; color:var(--muted); font-weight:400; }
+  .tagline { color:var(--muted); margin-top:4px; max-width:70ch; font-size:14px; }
+  a.plink { text-decoration:none; background:var(--ink); color:#fff; padding:9px 18px; border-radius:999px; font-size:13.5px; font-weight:600; }
+
+  .controls { display:flex; gap:14px; align-items:center; flex-wrap:wrap; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px 18px; margin-bottom:18px; }
+  .controls label { font-size:14px; color:var(--muted); }
+  input[type=number] { width:70px; border:1px solid var(--border); border-radius:9px; padding:8px 10px; font:15px 'Inter'; }
+  button { background:var(--ink); color:#fff; border:0; border-radius:999px; padding:10px 20px; font:600 14px 'Inter'; cursor:pointer; }
+  button:hover { opacity:.88; }
+  .toggle { display:inline-flex; align-items:center; gap:7px; font-size:13.5px; color:var(--muted); cursor:pointer; user-select:none; }
+  .toggle input { width:16px; height:16px; }
+  .cd { margin-left:auto; font:800 30px var(--mono); letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+  .cd small { font:600 12px 'Inter'; color:var(--muted); display:block; text-align:right; letter-spacing:0; }
+  .cd.live { color:var(--green); }
+  .phasebar { font-size:13px; color:var(--muted); margin-bottom:14px; }
+  .phasebar b { color:var(--ink); }
+
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  @media (max-width:1080px){ .grid{grid-template-columns:repeat(2,1fr)} }
+  @media (max-width:680px){ .grid{grid-template-columns:1fr} }
+  .term { border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--term); display:flex; flex-direction:column; min-height:172px; }
+  .term.coord { grid-column:1/-1; min-height:120px; }
+  .thead { display:flex; align-items:center; gap:8px; padding:9px 12px; background:#161a20; border-bottom:1px solid #232833; }
+  .thead .dot { width:9px; height:9px; border-radius:50%; background:#4d5566; flex:none; }
+  .term.on .thead .dot { background:var(--green); box-shadow:0 0 0 3px rgba(13,148,99,.2); }
+  .term.off .thead .dot { background:var(--red); }
+  .thead .nm { color:#e6edf3; font:700 12.5px 'Inter'; }
+  .thead .meta { color:#8b949e; font:500 11px 'Inter'; margin-left:auto; }
+  .tbody { padding:10px 12px; font:11.5px/1.5 var(--mono); color:#c9d1d9; overflow-y:auto; flex:1; max-height:230px; white-space:pre-wrap; word-break:break-word; }
+  .term.coord .tbody { color:#9ecbff; max-height:150px; }
+  .tbody .l { display:block; }
+  .tbody .l.sys { color:#7ee2a8; }
+  .tbody .l.warn { color:#ffa657; }
+  .tbody .l.err { color:#ff7b72; }
+
+  .screens { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:20px; }
+  @media (max-width:760px){ .screens{grid-template-columns:1fr} }
+  .screen { border:1px solid var(--border); border-radius:12px; padding:14px; background:#fff; min-height:80px; }
+  .screen h3 { font:700 13.5px 'Inter'; }
+  .screen .cid { color:var(--muted); font-weight:400; font-size:12px; }
+  .lockmsg { margin-top:10px; background:var(--amberbg); border:1px dashed #e7c98a; border-radius:9px; color:var(--amber); font-size:12.5px; text-align:center; padding:18px 8px; font-weight:600; }
+  .q { border-top:1px solid var(--border); padding:8px 0; font-size:12.5px; }
+  .q:first-of-type { border-top:0; }
+  .q b { font-size:11px; color:var(--muted); display:block; }
+  .q ol { margin:4px 0 0 18px; color:var(--muted); font-size:11.5px; }
+  .receipt { margin-top:16px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 14px; font-size:12.5px; display:none; }
+  .receipt b { color:var(--green); }
+  .receipt .h { font:11px var(--mono); color:var(--green); word-break:break-all; }
+  h2.sec { font-size:14px; font-weight:700; margin:22px 0 10px; }
+</style>
+
+<header>
+  <div>
+    <div class="wordmark">Zeroleak <i>· live cluster</i></div>
+    <div class="tagline">Nine <b>real, separate processes</b> — one per official — run a no-dealer key ceremony. The coordinator only relays encrypted fragments; it never sees the key. Watch each machine's own terminal.</div>
+  </div>
+  <a class="plink" href="/">← Glass room</a>
+</header>
+
+<div class="controls">
+  <label>Unlock in</label>
+  <input type="number" id="secs" value="20" min="10">
+  <label>seconds</label>
+  <label class="toggle"><input type="checkbox" id="fast" checked> fast demo mode</label>
+  <button id="start">Boot the cluster &amp; start</button>
+  <div class="cd" id="cd">—<small id="cdlabel">idle</small></div>
+</div>
+<div class="phasebar" id="phasebar">Press <b>Boot the cluster</b> to launch nine processes and watch the ceremony.</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="receipt" id="receipt"></div>
+
+<h2 class="sec">Exam center screens</h2>
+<div class="screens" id="screens"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let officials = [], since = 0, running = false, papersLoaded = false;
+const CENTERS = [
+  { id:'C101', name:'Delhi — Kendriya Vidyalaya, RK Puram' },
+  { id:'C202', name:'Patna — St. Xavier’s High School' },
+  { id:'C303', name:'Kota — Govt. Sr. Sec. School, Vigyan Nagar' },
+];
+async function api(p, opts) { const r = await fetch(p, opts); return r.json(); }
+
+function lineClass(s) {
+  if (/^!|error/i.test(s)) return 'err';
+  if (/offline|unreachable|fallback/i.test(s)) return 'warn';
+  if (/[✓◆⚡●→←]/.test(s)) return 'sys';
+  return '';
+}
+
+function buildTerminals(list) {
+  let html = `<div class="term coord on" id="t-0"><div class="thead"><span class="dot"></span><span class="nm">◆ Coordinator (untrusted relay)</span><span class="meta">cannot read fragments</span></div><div class="tbody" id="b-0"></div></div>`;
+  for (const o of list) {
+    html += `<div class="term" id="t-${o.id}"><div class="thead"><span class="dot"></span><span class="nm">#${o.id} · ${o.name}</span><span class="meta">${o.city}</span></div><div class="tbody" id="b-${o.id}"></div></div>`;
+  }
+  $('grid').innerHTML = html;
+}
+function renderScreens() {
+  $('screens').innerHTML = CENTERS.map((c) => `<div class="screen" id="scr-${c.id}"><h3>${c.name} <span class="cid">· ${c.id}</span></h3><div class="lockmsg">Sealed — no paper exists yet</div></div>`).join('');
+}
+async function loadPapers() {
+  for (const c of CENTERS) {
+    const p = await api('/api/cluster/paper?center=' + c.id);
+    const el = $('scr-' + c.id);
+    if (p.questions && el.querySelector('.lockmsg')) {
+      el.querySelector('.lockmsg').remove();
+      el.insertAdjacentHTML('beforeend', p.questions.slice(0, 4).map((q) => `<div class="q"><b>Q${q.n} · ${q.subject}</b>${q.text}<ol type="A">${q.options.map((o) => `<li>${o}</li>`).join('')}</ol></div>`).join('') + `<div class="q" style="color:var(--muted)">…and ${p.questions.length - 4} more</div>`);
+    }
+  }
+}
+
+$('start').onclick = async () => {
+  await api('/api/cluster/schedule', { method:'POST', body: JSON.stringify({ seconds:+$('secs').value, fast:$('fast').checked }) });
+  since = 0; running = true; papersLoaded = false;
+  $('receipt').style.display = 'none';
+  renderScreens();
+  const s = await api('/api/cluster/status');
+  officials = s.officials; buildTerminals(officials);
+};
+
+// stream terminal lines
+setInterval(async () => {
+  if (!running) return;
+  const d = await api('/api/cluster/terminals?since=' + since);
+  if (!officials.length && d.officials) { officials = d.officials; buildTerminals(officials); }
+  if (d.lines && d.lines.length) {
+    since += d.lines.length;
+    for (const ln of d.lines) {
+      const body = $('b-' + ln.id);
+      if (!body) continue;
+      const div = document.createElement('span');
+      div.className = 'l ' + lineClass(ln.line);
+      div.textContent = ln.line;
+      body.appendChild(div);
+      body.scrollTop = body.scrollHeight;
+    }
+  }
+}, 600);
+
+// status / countdown / unlock
+setInterval(async () => {
+  if (!running) return;
+  const s = await api('/api/cluster/status');
+  if (!s.scheduled) return;
+  // official status dots
+  for (const o of s.officials) {
+    const t = $('t-' + o.id);
+    if (!t) continue;
+    t.classList.toggle('off', o.status === 'offline');
+    t.classList.toggle('on', o.status === 'committed' || o.status === 'waiting');
+  }
+  const dt = Math.ceil((s.t0 - s.now) / 1000);
+  const cd = $('cd'), lab = $('cdlabel');
+  const phaseTxt = { booting:'booting 9 processes', dkg:'officials exchanging encrypted fragments', ready:'key sealed in shares — waiting for T-0', live:'live', combining:'combining shares' };
+  $('phasebar').innerHTML = 'Phase: <b>' + (phaseTxt[s.phase] || s.phase) + '</b> · ' + s.committed + ' of ' + s.threshold + ' fragments committed · ' + (s.onlineIds ? s.onlineIds.length : 0) + ' officials online';
+  if (s.live) {
+    cd.textContent = 'LIVE'; cd.className = 'cd live'; lab.textContent = 'paper is born';
+    if (s.reveal) {
+      $('receipt').style.display = 'block';
+      $('receipt').innerHTML = `<b>Ceremony complete.</b> The group key existed only as scattered shares until T-0. seed = <span class="h">${s.reveal.seed}</span>` + (s.reveal.beacon && s.reveal.beacon.source === 'drand' ? `<br>drand round ${s.reveal.beacon.round} mixed in.` : '');
+    }
+    if (!papersLoaded) { papersLoaded = true; loadPapers(); }
+  } else if (dt > 0) {
+    cd.textContent = dt; cd.className = 'cd'; lab.textContent = 'until T-0';
+  } else {
+    cd.textContent = '…'; cd.className = 'cd'; lab.textContent = 'combining';
+  }
+}, 700);
+
+renderScreens();
+</script>

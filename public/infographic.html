@@ -1,0 +1,623 @@
+<meta charset="utf-8">
+<title>Zeroleak — how it works, in motion</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg:#ffffff; --ink:#111113; --muted:#6b7280; --faint:#9ca3af; --border:#e7e7e9;
+    --card:#fafafa; --green:#0d9463; --greenbg:#e7f6ef; --red:#d13438; --redbg:#fdecec;
+    --amber:#b4552a; --amberbg:#fff5eb; --blue:#2563eb;
+  }
+  * { box-sizing:border-box; margin:0; }
+  html,body { height:100%; }
+  body {
+    background:var(--bg); color:var(--ink);
+    font:16px/1.6 'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  main { height:100%; overflow-y:auto; scroll-snap-type:y proximity; }
+  section {
+    min-height:100vh; scroll-snap-align:start; position:relative;
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    padding:64px 24px; text-align:center; overflow:hidden;
+  }
+  .num { font:700 13px 'Inter'; color:var(--muted); letter-spacing:.18em; margin-bottom:14px; }
+  .num .bar { display:inline-block; width:26px; height:2px; background:var(--muted); vertical-align:4px; margin-right:8px; }
+  h1 { font-size:clamp(38px,6vw,68px); letter-spacing:-.03em; line-height:1.08; font-weight:800; max-width:15ch; }
+  h2 { font-size:clamp(28px,4vw,44px); letter-spacing:-.02em; line-height:1.14; font-weight:700; max-width:20ch; }
+  p.lead { margin-top:16px; max-width:52ch; color:#3a3a3a; font-size:17px; }
+  .stage { margin:38px 0 8px; width:min(720px,92vw); }
+  .cap { color:var(--muted); font-size:13.5px; margin-top:8px; }
+  .hint { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); color:var(--faint); font-size:12.5px; letter-spacing:.08em; z-index:5; }
+  .counter { position:fixed; top:16px; right:20px; font-size:12.5px; color:var(--muted); background:#fff; border:1px solid var(--border); border-radius:999px; padding:5px 13px; z-index:5; }
+  .home { position:fixed; top:16px; left:20px; z-index:5; text-decoration:none; background:var(--ink); color:#fff; font:600 13px 'Inter'; padding:8px 16px; border-radius:999px; }
+  .badge { display:inline-block; font:700 12px 'Inter'; padding:5px 13px; border-radius:999px; margin-top:18px; }
+  .b-red { background:var(--redbg); color:var(--red); }
+  .b-green { background:var(--greenbg); color:var(--green); }
+
+  /* glossary tooltips */
+  .gl { border-bottom:1.5px dotted currentColor; cursor:help; }
+  #gtip {
+    position:fixed; z-index:60; max-width:300px; text-align:left;
+    background:#0f1115; color:#e6edf3; font:400 13px/1.55 'Inter',system-ui,sans-serif;
+    text-transform:none; letter-spacing:normal; padding:12px 14px; border-radius:12px;
+    box-shadow:0 10px 34px rgba(0,0,0,.28); opacity:0; transform:translateY(6px);
+    pointer-events:none; transition:opacity .14s ease, transform .14s ease;
+  }
+  #gtip.on { opacity:1; transform:none; }
+  #gtip b { color:#7ee2a8; font-weight:700; }
+
+  /* --- generic entrance --- */
+  .reveal { opacity:0; transform:translateY(24px); transition:opacity .7s ease, transform .7s ease; }
+  section.on .reveal { opacity:1; transform:none; }
+  .reveal.d1{transition-delay:.1s}.reveal.d2{transition-delay:.25s}.reveal.d3{transition-delay:.4s}.reveal.d4{transition-delay:.55s}
+
+  svg { width:100%; height:auto; display:block; overflow:visible; }
+  .lbl { font:600 12px 'Inter',sans-serif; fill:var(--muted); }
+  .lblw { font:700 11px 'Inter',sans-serif; fill:#fff; }
+  .lbli { font:700 12px 'Inter',sans-serif; fill:var(--ink); }
+
+  /* --- s1 title: pulsing sealed core --- */
+  @keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+  #core { transform-origin:center; animation:breathe 3.4s ease-in-out infinite; }
+
+  /* --- s2 supply chain: truck + leak blink --- */
+  @keyframes roll { from{transform:translateX(-30px)} to{transform:translateX(430px)} }
+  section.on #truck { animation:roll 6s linear infinite; }
+  @keyframes leakblink { 0%,72%,100%{opacity:0} 78%,94%{opacity:1} }
+  section.on .leakpt { animation:leakblink 3s ease-in-out infinite; }
+
+  /* --- s3 countdown zero --- */
+  @keyframes tick { 0%{opacity:0;transform:scale(.6)} 12%,88%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1.3)} }
+  section.on #cd3 { animation:tick 1.5s ease-in-out infinite; transform-origin:center; }
+
+  /* --- s4 fragments fly to center --- */
+  @keyframes flyin { 0%{opacity:0} 12%{opacity:1} 100%{opacity:1} }
+  section.on .frag { opacity:0; animation:flyin 5s ease-in-out infinite; }
+  .frag path { transition:none; }
+  @keyframes keyglow { 0%,55%{opacity:0;transform:scale(.4)} 70%,100%{opacity:1;transform:scale(1)} }
+  section.on #keydot { animation:keyglow 5s ease-in-out infinite; transform-origin:center; }
+
+  /* --- s5 beacon spin --- */
+  @keyframes spin { to{transform:rotate(360deg)} }
+  section.on #ring { transform-origin:center; animation:spin 8s linear infinite; }
+  @keyframes ripple { 0%{r:6;opacity:.9} 100%{r:60;opacity:0} }
+  section.on .rip { animation:ripple 2.4s ease-out infinite; }
+  section.on .rip.r2{animation-delay:.8s} section.on .rip.r3{animation-delay:1.6s}
+
+  /* --- s6 fan-out to screens --- */
+  @keyframes dash { to{stroke-dashoffset:0} }
+  section.on .beam { stroke-dasharray:6 8; stroke-dashoffset:120; animation:dash 1.4s linear infinite; }
+  @keyframes litup { 0%,40%{fill:#e9ecf1} 55%,100%{fill:var(--greenbg)} }
+  section.on .scr { animation:litup 3s ease-in-out infinite; }
+  @keyframes flash { 0%,45%{opacity:0} 60%{opacity:1} 100%{opacity:.85} }
+  section.on .scrtick { opacity:0; animation:flash 3s ease-in-out infinite; }
+
+  /* --- s7 trace back --- */
+  @keyframes tracepulse { 0%,100%{opacity:.25} 50%{opacity:1} }
+  section.on #traceline { stroke-dasharray:5 6; animation:dash 1.2s linear infinite; }
+  section.on #tracetag { animation:tracepulse 2s ease-in-out infinite; }
+</style>
+
+<a class="home" href="/">← Glass room</a>
+<div class="counter" id="counter">1 / 7</div>
+
+<main id="deck">
+
+<!-- 1 -->
+<section>
+  <div class="num reveal"><span class="bar"></span>ZEROLEAK · HOW IT WORKS</div>
+  <h1 class="reveal d1">A paper that is born the second the exam starts.</h1>
+  <p class="lead reveal d2">Scroll through the whole machine — the leak we kill, the ceremony that makes the key, and how every screen in India lights up at once.</p>
+  <div class="stage reveal d3">
+    <svg viewBox="0 0 420 200">
+      <g id="core">
+        <ellipse cx="210" cy="100" rx="46" ry="78" fill="#141414"/>
+        <ellipse cx="196" cy="72" rx="12" ry="15" fill="#b4552a" opacity=".85"/>
+        <ellipse cx="224" cy="112" rx="14" ry="18" fill="#b4552a" opacity=".8"/>
+        <ellipse cx="200" cy="140" rx="9" ry="11" fill="#b4552a" opacity=".7"/>
+      </g>
+      <line x1="210" y1="8" x2="210" y2="24" stroke="#111" stroke-width="1.5"/>
+      <line x1="210" y1="176" x2="210" y2="192" stroke="#111" stroke-width="1.5"/>
+      <text x="286" y="96" class="lbli">SEALED</text>
+      <text x="286" y="114" class="lbl">until T‑0</text>
+    </svg>
+  </div>
+  <div class="badge b-green reveal d4">Nothing exists to steal · yet</div>
+</section>
+
+<!-- 2 · the problem -->
+<section>
+  <div class="num reveal"><span class="bar"></span>01 · THE LEAK WE KILL</div>
+  <h2 class="reveal d1">Today's paper travels for weeks. That journey is the leak.</h2>
+  <div class="stage reveal d2">
+    <svg viewBox="0 0 460 180">
+      <!-- road -->
+      <line x1="0" y1="140" x2="460" y2="140" stroke="#e7e7e9" stroke-width="3"/>
+      <!-- stops -->
+      <g>
+        <rect x="10" y="96" width="42" height="44" rx="4" fill="#fafafa" stroke="#e7e7e9"/>
+        <path d="M20 116h22M20 122h22M20 110h22" stroke="#9ca3af" stroke-width="2"/>
+        <text x="31" y="162" class="lbl" text-anchor="middle">Set</text>
+      </g>
+      <g>
+        <rect x="130" y="92" width="48" height="48" rx="4" fill="#fafafa" stroke="#e7e7e9"/>
+        <circle cx="154" cy="116" r="12" fill="none" stroke="#9ca3af" stroke-width="2"/>
+        <path d="M154 106v20M144 116h20" stroke="#9ca3af" stroke-width="2"/>
+        <text x="154" y="162" class="lbl" text-anchor="middle">Printed</text>
+        <circle class="leakpt" cx="176" cy="94" r="6" fill="#d13438"/>
+      </g>
+      <g>
+        <rect x="270" y="100" width="50" height="40" rx="4" fill="#fafafa" stroke="#e7e7e9"/>
+        <rect x="280" y="110" width="30" height="22" rx="2" fill="none" stroke="#9ca3af" stroke-width="2"/>
+        <text x="295" y="162" class="lbl" text-anchor="middle">Strongroom</text>
+        <circle class="leakpt" cx="318" cy="102" r="6" fill="#d13438"/>
+      </g>
+      <g>
+        <rect x="404" y="96" width="46" height="44" rx="4" fill="#fafafa" stroke="#e7e7e9"/>
+        <path d="M414 128l6-16 6 12 6-8" stroke="#9ca3af" stroke-width="2" fill="none"/>
+        <text x="427" y="162" class="lbl" text-anchor="middle">Centre</text>
+        <circle class="leakpt" cx="448" cy="98" r="6" fill="#d13438"/>
+      </g>
+      <!-- truck -->
+      <g id="truck">
+        <rect x="0" y="112" width="34" height="20" rx="2" fill="#111"/>
+        <rect x="34" y="118" width="14" height="14" rx="2" fill="#111"/>
+        <circle cx="10" cy="134" r="5" fill="#111"/><circle cx="10" cy="134" r="2" fill="#fff"/>
+        <circle cx="40" cy="134" r="5" fill="#111"/><circle cx="40" cy="134" r="2" fill="#fff"/>
+      </g>
+    </svg>
+  </div>
+  <p class="lead reveal d3">Written, printed, driven across the country, parked in strongrooms — weeks before anyone sits down. Every red dot is a place a phone camera has leaked it.</p>
+  <div class="badge b-red reveal d4">Weeks of exposure · hundreds of hands</div>
+</section>
+
+<!-- 3 · the insight -->
+<section>
+  <div class="num reveal"><span class="bar"></span>02 · THE FIX</div>
+  <h2 class="reveal d1">Shrink that journey to zero seconds.</h2>
+  <div class="stage reveal d2">
+    <svg viewBox="0 0 420 190">
+      <circle cx="210" cy="95" r="72" fill="none" stroke="#e7e7e9" stroke-width="10"/>
+      <circle cx="210" cy="95" r="72" fill="none" stroke="var(--green)" stroke-width="10" stroke-linecap="round" stroke-dasharray="452" stroke-dashoffset="34" transform="rotate(-90 210 95)"/>
+      <g id="cd3"><text x="210" y="108" text-anchor="middle" font="800 46px Inter" font-family="Inter,sans-serif" font-weight="800" font-size="46" fill="var(--ink)">0</text></g>
+      <text x="210" y="182" text-anchor="middle" class="lbl">2:00:00 PM — genesis</text>
+    </svg>
+  </div>
+  <p class="lead reveal d3">Until the exam's first second there is no paper anywhere: no draft, no PDF, no print run. You cannot photograph, buy, or steal a thing that has not been created yet.</p>
+  <div class="badge b-green reveal d4">People who know the paper early: 0</div>
+</section>
+
+<!-- 4 · ceremony -->
+<section>
+  <div class="num reveal"><span class="bar"></span>03 · THE KEY CEREMONY</div>
+  <h2 class="reveal d1">Nine officials. Any five make the key — at zero, never before.</h2>
+  <div class="stage reveal d2">
+    <svg viewBox="0 0 440 240">
+      <!-- 9 official nodes around a ring -->
+      <g id="officials"></g>
+      <!-- center key -->
+      <circle cx="220" cy="120" r="34" fill="#fafafa" stroke="#e7e7e9"/>
+      <g id="keydot">
+        <circle cx="220" cy="112" r="12" fill="none" stroke="var(--green)" stroke-width="4"/>
+        <rect x="217" y="120" width="6" height="20" fill="var(--green)"/>
+        <rect x="223" y="132" width="8" height="4" fill="var(--green)"/>
+        <rect x="223" y="126" width="6" height="4" fill="var(--green)"/>
+      </g>
+    </svg>
+  </div>
+  <p class="lead reveal d3">Each holds one fragment, generated on their own device. Five fragments combine into the key at T‑0. Four give you pure noise — so no single person can ever know it early.</p>
+  <div class="badge b-green reveal d4">Real Shamir 5‑of‑9 secret sharing</div>
+</section>
+
+<!-- 5 · beacon -->
+<section>
+  <div class="num reveal"><span class="bar"></span>04 · WORLD RANDOMNESS</div>
+  <h2 class="reveal d1">Mixed with a number nobody can know in advance.</h2>
+  <div class="stage reveal d2">
+    <svg viewBox="0 0 420 220">
+      <g id="ring">
+        <circle cx="210" cy="110" r="70" fill="none" stroke="#e7e7e9" stroke-width="2" stroke-dasharray="3 7"/>
+        <circle cx="210" cy="40" r="6" fill="var(--blue)"/>
+        <circle cx="280" cy="110" r="6" fill="var(--blue)"/>
+        <circle cx="210" cy="180" r="6" fill="var(--blue)"/>
+        <circle cx="140" cy="110" r="6" fill="var(--blue)"/>
+        <circle cx="260" cy="60" r="6" fill="var(--blue)"/>
+        <circle cx="260" cy="160" r="6" fill="var(--blue)"/>
+        <circle cx="160" cy="160" r="6" fill="var(--blue)"/>
+        <circle cx="160" cy="60" r="6" fill="var(--blue)"/>
+      </g>
+      <circle class="rip" cx="210" cy="110" r="6" fill="none" stroke="var(--blue)" stroke-width="2"/>
+      <circle class="rip r2" cx="210" cy="110" r="6" fill="none" stroke="var(--blue)" stroke-width="2"/>
+      <circle class="rip r3" cx="210" cy="110" r="6" fill="none" stroke="var(--blue)" stroke-width="2"/>
+      <circle cx="210" cy="110" r="22" fill="#fff" stroke="var(--blue)" stroke-width="2"/>
+      <text x="210" y="115" text-anchor="middle" class="lblu" font-family="Inter,sans-serif" font-weight="700" font-size="11" fill="var(--blue)">drand</text>
+    </svg>
+  </div>
+  <p class="lead reveal d3">A global network of ~20 organisations produces a fresh random value every 30 seconds. The 2:00 PM value doesn't exist at 1:59 — anywhere on Earth. seed = key + this number.</p>
+  <div class="badge b-green reveal d4">Even hacking all nine can't beat this</div>
+</section>
+
+<!-- 6 · fan out -->
+<section>
+  <div class="num reveal"><span class="bar"></span>05 · SIMULTANEOUS UNLOCK</div>
+  <h2 class="reveal d1">One tiny key lights up every centre in the same second.</h2>
+  <div class="stage reveal d2">
+    <svg viewBox="0 0 460 220">
+      <!-- source key -->
+      <circle cx="230" cy="34" r="18" fill="var(--ink)"/>
+      <text x="230" y="39" text-anchor="middle" class="lblw">KEY</text>
+      <!-- beams -->
+      <line class="beam" x1="230" y1="52" x2="80" y2="150" stroke="var(--green)" stroke-width="2"/>
+      <line class="beam" x1="230" y1="52" x2="230" y2="150" stroke="var(--green)" stroke-width="2"/>
+      <line class="beam" x1="230" y1="52" x2="380" y2="150" stroke="var(--green)" stroke-width="2"/>
+      <!-- screens -->
+      <g>
+        <rect class="scr" x="40" y="150" width="80" height="52" rx="6" stroke="#c9ceD6" fill="#e9ecf1"/>
+        <path class="scrtick" d="M64 176l10 10 18-20" stroke="var(--green)" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <text x="80" y="216" text-anchor="middle" class="lbl">Delhi</text>
+      </g>
+      <g>
+        <rect class="scr" x="190" y="150" width="80" height="52" rx="6" stroke="#c9ceD6" fill="#e9ecf1"/>
+        <path class="scrtick" d="M214 176l10 10 18-20" stroke="var(--green)" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <text x="230" y="216" text-anchor="middle" class="lbl">Patna</text>
+      </g>
+      <g>
+        <rect class="scr" x="340" y="150" width="80" height="52" rx="6" stroke="#c9ceD6" fill="#e9ecf1"/>
+        <path class="scrtick" d="M364 176l10 10 18-20" stroke="var(--green)" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <text x="380" y="216" text-anchor="middle" class="lbl">Kota</text>
+      </g>
+    </svg>
+  </div>
+  <p class="lead reveal d3">Centres hold the locked paper in advance. The key fits in one SMS. It arrives in seconds, and every screen shows the paper together — same questions, shuffled per centre.</p>
+  <div class="badge b-green reveal d4">Students still answer on the same OMR sheet</div>
+</section>
+
+<!-- 7 · tracing -->
+<section>
+  <div class="num reveal"><span class="bar"></span>06 · IF SOMEONE STILL LEAKS</div>
+  <h2 class="reveal d1">Every copy quietly names whoever leaked it.</h2>
+  <div class="stage reveal d2">
+    <svg viewBox="0 0 440 210">
+      <!-- leaked doc -->
+      <rect x="40" y="70" width="90" height="70" rx="6" fill="#fafafa" stroke="#e7e7e9"/>
+      <path d="M54 90h62M54 102h62M54 114h40" stroke="#9ca3af" stroke-width="3"/>
+      <text x="85" y="160" text-anchor="middle" class="lbl">Leaked photo</text>
+      <!-- trace line -->
+      <line id="traceline" x1="132" y1="105" x2="300" y2="105" stroke="var(--red)" stroke-width="2"/>
+      <!-- magnifier -->
+      <g>
+        <circle cx="216" cy="105" r="20" fill="#fff" stroke="var(--red)" stroke-width="3"/>
+        <line x1="230" y1="119" x2="244" y2="133" stroke="var(--red)" stroke-width="4" stroke-linecap="round"/>
+        <path d="M209 105a7 7 0 0114 0" stroke="var(--red)" stroke-width="2" fill="none"/>
+      </g>
+      <!-- traced target -->
+      <g id="tracetag">
+        <rect x="306" y="80" width="110" height="50" rx="8" fill="var(--redbg)" stroke="var(--red)"/>
+        <text x="361" y="102" text-anchor="middle" font-family="Inter,sans-serif" font-weight="700" font-size="13" fill="var(--red)">C202 · Patna</text>
+        <text x="361" y="120" text-anchor="middle" class="lbl" fill="var(--red)">Room 4 · Seat 17</text>
+      </g>
+    </svg>
+  </div>
+  <p class="lead reveal d3">Each centre's copy carries an invisible fingerprint that survives screenshots and retyping. Paste a leak into the tracer and it names the centre, room, and seat — in seconds.</p>
+  <div class="badge b-red reveal d4">The leaker's own leak is the confession</div>
+</section>
+
+<!-- ============ TECH CHAPTER DIVIDER ============ -->
+<section>
+  <div class="num reveal"><span class="bar"></span>THE TECHNOLOGY, EXPLAINED</div>
+  <h1 class="reveal d1">None of this is magic. Five old, proven ideas.</h1>
+  <p class="lead reveal d2">Every piece below is decades-old, audited cryptography already running in banks, blockchains, and browsers. We just arranged them for exams. Scroll on.</p>
+  <div class="stage reveal d3" style="width:min(560px,92vw)">
+    <svg viewBox="0 0 560 90">
+      <g font-family="Inter,sans-serif" font-weight="700" font-size="12" fill="#111" text-anchor="middle">
+        <g><rect x="6" y="30" width="96" height="34" rx="8" fill="#fafafa" stroke="#e7e7e9"/><text x="54" y="51">Shamir</text></g>
+        <g><rect x="118" y="30" width="96" height="34" rx="8" fill="#fafafa" stroke="#e7e7e9"/><text x="166" y="51">drand</text></g>
+        <g><rect x="230" y="30" width="100" height="34" rx="8" fill="#fafafa" stroke="#e7e7e9"/><text x="280" y="47">commit‑</text><text x="280" y="60" font-size="10">reveal</text></g>
+        <g><rect x="346" y="30" width="100" height="34" rx="8" fill="#fafafa" stroke="#e7e7e9"/><text x="396" y="47">hash</text><text x="396" y="60" font-size="10">chain</text></g>
+        <g><rect x="462" y="30" width="92" height="34" rx="8" fill="#fafafa" stroke="#e7e7e9"/><text x="508" y="47">water‑</text><text x="508" y="60" font-size="10">marking</text></g>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- T1 · Shamir -->
+<section>
+  <div class="num reveal"><span class="bar"></span>TECH 01 · SHAMIR SECRET SHARING</div>
+  <h2 class="reveal d1">Split a secret so any 5 of 9 pieces rebuild it — 4 reveal nothing.</h2>
+  <div class="stage reveal d2" style="width:min(600px,92vw)">
+    <svg viewBox="0 0 600 240">
+      <!-- axes -->
+      <line x1="60" y1="200" x2="560" y2="200" stroke="#c9ceD6" stroke-width="1.5"/>
+      <line x1="60" y1="20" x2="60" y2="200" stroke="#c9ceD6" stroke-width="1.5"/>
+      <text x="52" y="16" class="lbl" text-anchor="end">y</text>
+      <text x="566" y="216" class="lbl">x</text>
+      <!-- the secret sits where the curve hits x=0 -->
+      <circle cx="60" cy="60" r="6" fill="var(--ink)"/>
+      <text x="72" y="52" class="lbli">the secret = curve at x=0</text>
+      <!-- a smooth polynomial curve -->
+      <path d="M60 60 Q180 220 300 120 T560 90" fill="none" stroke="var(--green)" stroke-width="3"/>
+      <!-- share points on the curve -->
+      <g fill="var(--green)">
+        <circle cx="140" cy="150" r="5"/><circle cx="220" cy="168" r="5"/>
+        <circle cx="300" cy="120" r="5"/><circle cx="380" cy="98" r="5"/><circle cx="470" cy="92" r="5"/>
+      </g>
+      <text x="300" y="228" text-anchor="middle" class="lbl">each official holds one dot · 5 dots fix the whole curve · 4 fit infinitely many curves</text>
+    </svg>
+  </div>
+  <p class="lead reveal d3">A curve of degree 4 is pinned down by exactly 5 points. Give each official one point. Five of them reconstruct the curve — and read the secret where it crosses zero. With only four, infinitely many curves fit, so the secret could be anything. That gap is the security.</p>
+  <div class="badge b-green reveal d4">Adi Shamir, 1979 · the "S" in RSA</div>
+</section>
+
+<!-- T2 · drand -->
+<section>
+  <div class="num reveal"><span class="bar"></span>TECH 02 · DRAND — PUBLIC RANDOMNESS</div>
+  <h2 class="reveal d1">A dice roll no one controls, and no one can predict.</h2>
+  <div class="stage reveal d2" style="width:min(600px,92vw)">
+    <svg viewBox="0 0 600 210">
+      <!-- many orgs contribute -->
+      <g fill="var(--blue)">
+        <circle cx="60" cy="50" r="7"/><circle cx="60" cy="105" r="7"/><circle cx="60" cy="160" r="7"/>
+        <circle cx="110" cy="78" r="7"/><circle cx="110" cy="132" r="7"/>
+      </g>
+      <text x="85" y="192" text-anchor="middle" class="lbl">~20 orgs</text>
+      <!-- arrows to combiner -->
+      <g stroke="#c9ceD6" stroke-width="1.5">
+        <line x1="70" y1="50" x2="250" y2="95"/><line x1="70" y1="105" x2="250" y2="105"/>
+        <line x1="70" y1="160" x2="250" y2="115"/><line x1="120" y1="78" x2="250" y2="100"/><line x1="120" y1="132" x2="250" y2="110"/>
+      </g>
+      <!-- combiner -->
+      <circle cx="290" cy="105" r="40" fill="#fff" stroke="var(--blue)" stroke-width="2"/>
+      <text x="290" y="101" text-anchor="middle" font-family="Inter,sans-serif" font-weight="700" font-size="12" fill="var(--blue)">thresh.</text>
+      <text x="290" y="116" text-anchor="middle" font-family="Inter,sans-serif" font-weight="700" font-size="12" fill="var(--blue)">signature</text>
+      <!-- timeline of rounds -->
+      <line x1="360" y1="105" x2="580" y2="105" stroke="#c9ceD6" stroke-width="1.5"/>
+      <g fill="var(--blue)" font-family="Inter,sans-serif" font-size="10" text-anchor="middle">
+        <circle cx="400" cy="105" r="6"/><text x="400" y="128" fill="#6b7280">‑30s</text>
+        <circle cx="470" cy="105" r="6"/><text x="470" y="128" fill="#6b7280">now</text>
+        <circle cx="540" cy="105" r="8" fill="none" stroke="var(--blue)" stroke-width="2" stroke-dasharray="3 3"/><text x="540" y="128" fill="#6b7280">+30s ?</text>
+      </g>
+      <text x="470" y="80" text-anchor="middle" class="lbl">new value every 30s</text>
+    </svg>
+  </div>
+  <p class="lead reveal d3">No single machine rolls the dice — ~20 organisations each contribute, and their pieces combine into one value every 30 seconds. The next value literally does not exist until they produce it, so it can't be known, bought, or predicted in advance. We publish which round we'll use, so anyone can check it later.</p>
+  <div class="badge b-green reveal d4">League of Entropy · runs live at drand.love</div>
+</section>
+
+<!-- T3 · commit-reveal -->
+<section>
+  <div class="num reveal"><span class="bar"></span>TECH 03 · COMMIT‑REVEAL</div>
+  <h2 class="reveal d1">Lock a promise in public first. Prove you kept it after.</h2>
+  <div class="stage reveal d2" style="width:min(600px,92vw)">
+    <svg viewBox="0 0 600 200">
+      <!-- before -->
+      <text x="150" y="30" text-anchor="middle" class="lbli">BEFORE THE EXAM</text>
+      <rect x="70" y="46" width="160" height="46" rx="8" fill="#fafafa" stroke="#e7e7e9"/>
+      <text x="150" y="66" text-anchor="middle" class="lbl">everything (bank,</text>
+      <text x="150" y="82" text-anchor="middle" class="lbl">ceremony, timing)</text>
+      <text x="255" y="75" font-size="18" fill="#9ca3af">→</text>
+      <rect x="278" y="46" width="90" height="46" rx="8" fill="var(--ink)"/>
+      <text x="323" y="66" text-anchor="middle" class="lblw">#a3f9…</text>
+      <text x="323" y="82" text-anchor="middle" class="lblw" font-size="9">receipt</text>
+      <text x="323" y="112" text-anchor="middle" class="lbl">published · reveals nothing</text>
+      <!-- after -->
+      <text x="150" y="150" text-anchor="middle" class="lbli">AFTER THE EXAM</text>
+      <rect x="70" y="162" width="160" height="30" rx="6" fill="#fafafa" stroke="#e7e7e9"/>
+      <text x="150" y="182" text-anchor="middle" class="lbl">reveal all values</text>
+      <text x="255" y="182" font-size="18" fill="#9ca3af">→</text>
+      <rect x="278" y="162" width="90" height="30" rx="6" fill="var(--greenbg)" stroke="var(--green)"/>
+      <text x="323" y="182" text-anchor="middle" font-family="Inter,sans-serif" font-weight="700" font-size="11" fill="var(--green)">#a3f9… ✓</text>
+      <text x="410" y="182" class="lbl">same hash = nothing was swapped</text>
+    </svg>
+  </div>
+  <p class="lead reveal d3">A hash is a one-way fingerprint: easy to compute forwards, impossible to reverse. We publish the fingerprint of the whole setup before the exam — it gives away none of the contents. Afterwards we reveal everything, and anyone re-computes the fingerprint. Same value means we couldn't have changed anything in between.</p>
+  <div class="badge b-green reveal d4">The trick behind sealed-bid auctions &amp; coin flips</div>
+</section>
+
+<!-- T4 · hash chain -->
+<section>
+  <div class="num reveal"><span class="bar"></span>TECH 04 · HASH‑CHAINED LEDGER</div>
+  <h2 class="reveal d1">A log where changing one line breaks every line after it.</h2>
+  <div class="stage reveal d2" style="width:min(620px,92vw)">
+    <svg viewBox="0 0 620 150">
+      <g font-family="Inter,sans-serif">
+        <g>
+          <rect x="20" y="50" width="120" height="60" rx="8" fill="#fafafa" stroke="#e7e7e9"/>
+          <text x="80" y="72" text-anchor="middle" font-weight="700" font-size="11">event #1</text>
+          <text x="80" y="92" text-anchor="middle" font-size="10" fill="#6b7280">hash: 1a2b</text>
+        </g>
+        <path d="M140 80h40" stroke="#9ca3af" stroke-width="2" marker-end="url(#ar)"/>
+        <g>
+          <rect x="182" y="50" width="120" height="60" rx="8" fill="#fafafa" stroke="#e7e7e9"/>
+          <text x="242" y="70" text-anchor="middle" font-weight="700" font-size="11">event #2</text>
+          <text x="242" y="86" text-anchor="middle" font-size="9" fill="#6b7280">prev: 1a2b</text>
+          <text x="242" y="100" text-anchor="middle" font-size="10" fill="#6b7280">hash: 9c4d</text>
+        </g>
+        <path d="M302 80h40" stroke="#9ca3af" stroke-width="2" marker-end="url(#ar)"/>
+        <g>
+          <rect x="344" y="50" width="120" height="60" rx="8" fill="#fafafa" stroke="#e7e7e9"/>
+          <text x="404" y="70" text-anchor="middle" font-weight="700" font-size="11">event #3</text>
+          <text x="404" y="86" text-anchor="middle" font-size="9" fill="#6b7280">prev: 9c4d</text>
+          <text x="404" y="100" text-anchor="middle" font-size="10" fill="#6b7280">hash: 7e1f</text>
+        </g>
+        <path d="M464 80h40" stroke="#9ca3af" stroke-width="2" marker-end="url(#ar)"/>
+        <g>
+          <rect x="506" y="50" width="96" height="60" rx="8" fill="#fafafa" stroke="#e7e7e9" stroke-dasharray="4 4"/>
+          <text x="554" y="84" text-anchor="middle" font-size="11" fill="#9ca3af">…</text>
+        </g>
+      </g>
+      <text x="80" y="132" text-anchor="middle" class="lbl" fill="var(--red)">edit this…</text>
+      <text x="404" y="132" text-anchor="middle" class="lbl" fill="var(--red)">…and every link downstream turns red</text>
+      <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0l6 4-6 4" fill="#9ca3af"/></marker></defs>
+    </svg>
+  </div>
+  <p class="lead reveal d3">Each entry in the audit log carries the fingerprint of the one before it — like Lego bricks locked together. Rewrite an old event and its fingerprint changes, which breaks the "prev" reference in the next event, and the next, visibly, all the way down. That's exactly how a blockchain stays tamper-evident.</p>
+  <div class="badge b-green reveal d4">The core idea inside every blockchain</div>
+</section>
+
+<!-- T5 · watermarking -->
+<section>
+  <div class="num reveal"><span class="bar"></span>TECH 05 · INVISIBLE WATERMARKING</div>
+  <h2 class="reveal d1">The same question, carrying a hidden serial number.</h2>
+  <div class="stage reveal d2" style="width:min(600px,92vw)">
+    <svg viewBox="0 0 600 200">
+      <!-- visible text -->
+      <rect x="150" y="30" width="300" height="40" rx="8" fill="#fafafa" stroke="#e7e7e9"/>
+      <text x="300" y="55" text-anchor="middle" font-family="Inter,sans-serif" font-size="13" fill="#111">"A body moves with…"</text>
+      <text x="300" y="90" text-anchor="middle" class="lbl">looks identical to every human eye</text>
+      <!-- zoom into hidden bits -->
+      <path d="M240 72 L200 120 M360 72 L400 120" stroke="#c9ceD6" stroke-width="1.5"/>
+      <rect x="150" y="120" width="300" height="44" rx="8" fill="#0f1115"/>
+      <g font-family="ui-monospace,monospace" font-size="13" fill="#c9d1d9" text-anchor="middle">
+        <text x="300" y="140">A·body·moves·with…</text>
+        <text x="300" y="156" fill="var(--green)">A[‌​‌​‌‌]body·moves… → C202</text>
+      </g>
+      <text x="300" y="184" text-anchor="middle" class="lbl">invisible zero-width characters spell out the centre ID</text>
+    </svg>
+  </div>
+  <p class="lead reveal d3">Between the letters we weave zero-width characters — real Unicode symbols that take up no space and never show on screen. Arranged as ones and zeros, they spell out the centre's ID. Copy the text, screenshot it, retype it — the hidden serial rides along, and the tracer reads it straight back.</p>
+  <div class="badge b-green reveal d4">Same idea as "traitor tracing" in streaming &amp; PDFs</div>
+</section>
+
+<!-- Close -->
+<section>
+  <div class="num reveal"><span class="bar"></span>PUTTING IT TOGETHER</div>
+  <h2 class="reveal d1">Old, boring, proven parts. One new arrangement.</h2>
+  <p class="lead reveal d2">Shamir hides the key among nine people. drand makes it unknowable early. Commit-reveal proves fairness. The hash chain makes tampering visible. Watermarking catches the rare in-room leaker. Together: a paper that is born in public, verifiable by anyone, and impossible to steal before it exists.</p>
+  <div class="stage reveal d3" style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+    <a class="home" href="/" style="position:static">Watch it live in the glass room →</a>
+    <a class="home" href="/source" style="position:static;background:#fff;color:#111;border:1px solid #e7e7e9">Read the source →</a>
+  </div>
+  <div class="badge b-green reveal d4">Safe to publish · that's the whole point</div>
+</section>
+
+</main>
+<div class="hint">Scroll ↓ to walk through the machine</div>
+
+<script>
+  // Build the 9 officials around the ring in slide 4, with fly-in beams.
+  (function () {
+    const g = document.getElementById('officials');
+    if (!g) return;
+    const cx = 220, cy = 120, R = 92, n = 9;
+    // pick 5 that "submit" (green) — rest grey
+    const submit = new Set([0, 2, 3, 5, 7]);
+    let html = '';
+    for (let i = 0; i < n; i++) {
+      const a = (-90 + i * (360 / n)) * Math.PI / 180;
+      const x = cx + R * Math.cos(a), y = cy + R * Math.sin(a);
+      const active = submit.has(i);
+      const col = active ? 'var(--green)' : '#c9ceD6';
+      const delay = (0.2 + i * 0.12).toFixed(2);
+      if (active) {
+        html += `<line class="frag" x1="${x.toFixed(1)}" y1="${y.toFixed(1)}" x2="${cx}" y2="${cy}" stroke="var(--green)" stroke-width="2" style="animation-delay:${delay}s"/>`;
+      }
+      html += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="11" fill="#fff" stroke="${col}" stroke-width="2.5"/>`;
+      html += `<circle cx="${x.toFixed(1)}" cy="${(y - 3).toFixed(1)}" r="3.4" fill="${col}"/>`;
+      html += `<path d="M${(x - 6).toFixed(1)} ${(y + 6).toFixed(1)}a6 5 0 0112 0" fill="${col}"/>`;
+    }
+    g.innerHTML = html;
+  })();
+
+  // Scroll-triggered animation via IntersectionObserver.
+  const deck = document.getElementById('deck');
+  const slides = [...document.querySelectorAll('section')];
+  const counter = document.getElementById('counter');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('on'); });
+  }, { root: deck, threshold: 0.4 });
+  slides.forEach(s => io.observe(s));
+  slides[0].classList.add('on');
+
+  function currentIndex() {
+    const pos = deck.scrollTop + innerHeight / 3;
+    let best = 0; slides.forEach((s, i) => { if (s.offsetTop <= pos) best = i; });
+    return best;
+  }
+  deck.addEventListener('scroll', () => {
+    counter.textContent = (currentIndex() + 1) + ' / ' + slides.length;
+  }, { passive: true });
+  function goTo(i) { slides[Math.max(0, Math.min(i, slides.length - 1))].scrollIntoView({ behavior: 'smooth' }); }
+  addEventListener('keydown', e => {
+    if (['ArrowDown', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); goTo(currentIndex() + 1); }
+    if (['ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); goTo(currentIndex() - 1); }
+  });
+</script>
+
+<!-- Auto-glossary: underline known technical terms, define on hover/tap. -->
+<script>
+(function () {
+  const G = {
+    t0: "<b>T‑0</b> — the exam's first second (say 2:00:00 PM). The moment the paper is allowed to exist. Before it, everything is sealed and there is nothing to steal.",
+    fragment: "<b>Fragment</b> — one of nine pieces of the key, each held on one official's own device. Any five combine into the key; four reveal nothing at all.",
+    shamir: "<b>Shamir Secret Sharing</b> (1979) — splits a secret into 9 pieces so any 5 rebuild it and 4 tell you nothing. The secret is a point on a curve that only 5 points can pin down.",
+    drand: "<b>drand</b> — a public randomness beacon run by ~20 organisations worldwide, producing a fresh, unpredictable number every 30 seconds. The 2:00 PM value doesn't exist at 1:59 — so no one can know it early.",
+    seed: "<b>Seed</b> — the one random number that picks and shuffles the questions. seed = SHA‑256(ceremony key + drand value). Born at T‑0; never stored before.",
+    receipt: "<b>Fairness receipt</b> — a hash (fingerprint) of the whole setup, published before the exam. It reveals nothing, yet afterwards proves nothing was swapped.",
+    commitreveal: "<b>Commit‑reveal</b> — publish a fingerprint of your choices first (giving nothing away), then reveal the choices later. Anyone re‑computes the fingerprint to confirm nothing changed.",
+    hash: "<b>Hash (SHA‑256)</b> — a one‑way fingerprint of data: easy forwards, impossible to reverse. Identical data gives an identical hash; any tiny change gives a totally different one.",
+    ledger: "<b>Hash‑chained ledger</b> — an audit log where each entry carries the previous entry's hash. Rewrite any past line and every link after it visibly breaks — the idea behind blockchains.",
+    threshold: "<b>Threshold (5‑of‑9)</b> — how many fragments are needed. Fewer than five is useless, so no small group can cheat, and up to four officials can be offline without stopping the exam.",
+    watermark: "<b>Invisible watermark</b> — zero‑width Unicode characters woven through each centre's questions, spelling out that centre's ID. Survives copying, screenshots and retyping, so any leak names its own source."
+  };
+  const RE = /\b(fairness receipt|commit[-‑]reveal|hash[-‑]chained|zero[-‑]width|5[-‑]of[-‑]9|threshold|watermark|fragments?|commitment|shamir|ledger|drand|hash|seed|T[-‑]?0)\b/i;
+  function keyFor(s) {
+    s = s.toLowerCase().replace(/[‑–]/g, '-');
+    if (/^t-?0$/.test(s)) return 't0';
+    if (s.indexOf('fragment') === 0) return 'fragment';
+    if (s === 'shamir') return 'shamir';
+    if (s === 'drand') return 'drand';
+    if (s === 'seed') return 'seed';
+    if (s === 'fairness receipt' || s === 'commitment') return 'receipt';
+    if (s === 'commit-reveal') return 'commitreveal';
+    if (s === 'hash-chained' || s === 'ledger') return 'ledger';
+    if (s === 'hash') return 'hash';
+    if (s === 'threshold' || s === '5-of-9') return 'threshold';
+    if (s === 'watermark' || s === 'zero-width') return 'watermark';
+    return null;
+  }
+  function pass(el) {
+    let changed = false; const seen = new Set(); const nodes = [];
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    while (w.nextNode()) nodes.push(w.currentNode);
+    for (const node of nodes) {
+      const v = node.nodeValue; if (!v.trim()) continue;
+      if (node.parentElement.closest('.gl')) continue;
+      const m = v.match(RE); if (!m) continue;
+      const key = keyFor(m[1]); if (!key || seen.has(key) || !G[key]) continue;
+      seen.add(key);
+      const i = m.index;
+      const span = document.createElement('span');
+      span.className = 'gl'; span.dataset.term = key; span.textContent = v.slice(i, i + m[1].length);
+      const frag = document.createDocumentFragment();
+      if (i > 0) frag.appendChild(document.createTextNode(v.slice(0, i)));
+      frag.appendChild(span);
+      const rest = v.slice(i + m[1].length); if (rest) frag.appendChild(document.createTextNode(rest));
+      node.parentNode.replaceChild(frag, node); changed = true;
+    }
+    return changed;
+  }
+  function runGlossify() {
+    document.querySelectorAll('p.lead,.badge,.num,.cap,.sub,.tagline,.why,.beacon,.check .name,.check .expl')
+      .forEach(el => { for (let k = 0; k < 6; k++) if (!pass(el)) break; });
+  }
+  const tip = document.createElement('div'); tip.id = 'gtip'; document.body.appendChild(tip);
+  let cur = null;
+  function show(el) {
+    const g = G[el.dataset.term]; if (!g) return;
+    cur = el; tip.innerHTML = g; tip.classList.add('on');
+    const r = el.getBoundingClientRect(); tip.style.left = '0px'; tip.style.top = '0px';
+    requestAnimationFrame(() => {
+      const t = tip.getBoundingClientRect(); let l = r.left, top = r.bottom + 8;
+      if (l + t.width > innerWidth - 12) l = innerWidth - 12 - t.width; if (l < 12) l = 12;
+      if (top + t.height > innerHeight - 12) top = r.top - 8 - t.height; if (top < 12) top = 12;
+      tip.style.left = l + 'px'; tip.style.top = top + 'px';
+    });
+  }
+  function hide() { cur = null; tip.classList.remove('on'); }
+  document.addEventListener('mouseover', e => { const t = e.target.closest('.gl'); if (t && t !== cur) show(t); });
+  document.addEventListener('mouseout', e => { if (e.target.closest('.gl')) hide(); });
+  document.addEventListener('click', e => { const t = e.target.closest('.gl'); if (t) { e.stopPropagation(); (t === cur) ? hide() : show(t); } else hide(); });
+  runGlossify();
+  setInterval(runGlossify, 1800);   // catch any dynamically-added text
+})();
+</script>

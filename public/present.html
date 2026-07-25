@@ -1,0 +1,271 @@
+<meta charset="utf-8">
+<title>ZEROLEAK — The exam paper that cannot leak</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --ink: #111111;
+    --muted: #666666;
+    --faint: #999999;
+    --line: #eaeaea;
+    --bg: #ffffff;
+    --card-shadow: 0 1px 3px rgba(0,0,0,.04), 0 10px 30px rgba(0,0,0,.06);
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Noto Sans Devanagari", sans-serif;
+    color: var(--ink); background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+  }
+  main { height: 100%; overflow-y: auto; scroll-snap-type: y proximity; }
+  section {
+    min-height: 100vh; scroll-snap-align: start;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 72px 24px;
+  }
+  .wrap { width: 100%; max-width: 960px; margin: 0 auto; }
+  .kicker {
+    display: inline-block; font-size: 13px; font-weight: 600; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px; padding: 5px 14px;
+    margin-bottom: 22px; background: #fafafa;
+  }
+  h1 {
+    font-size: clamp(40px, 6.5vw, 72px); line-height: 1.12;
+    letter-spacing: -0.025em; font-weight: 700; max-width: 16ch;
+  }
+  h2 {
+    font-size: clamp(30px, 4.2vw, 46px); line-height: 1.2;
+    letter-spacing: -0.02em; font-weight: 700; max-width: 22ch;
+  }
+  p.lead { margin-top: 18px; max-width: 58ch; color: #3a3a3a; }
+  ul.points { margin: 18px 0 0; padding: 0; list-style: none; max-width: 60ch; }
+  ul.points li {
+    position: relative; padding: 9px 0 9px 26px; color: #3a3a3a;
+    border-top: 1px solid var(--line); font-size: 15.5px;
+  }
+  ul.points li:first-child { border-top: 0; }
+  ul.points li::before {
+    content: ''; position: absolute; left: 4px; top: 17px;
+    width: 7px; height: 7px; border-radius: 50%; background: var(--ink);
+  }
+  .hero { margin-top: 32px; }
+  .hero img {
+    display: block; width: 100%; max-height: 52vh; object-fit: cover;
+    border-radius: var(--radius); border: 1px solid var(--line);
+    box-shadow: var(--card-shadow); background: #f5f5f5;
+  }
+  .credit { margin-top: 10px; font-size: 12.5px; color: var(--faint); }
+  .credit a { color: var(--faint); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 28px; }
+  @media (max-width: 720px) { .cards { grid-template-columns: 1fr; } }
+  .card {
+    border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px;
+    background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.03);
+  }
+  .card b { display: block; font-size: 15.5px; margin-bottom: 4px; letter-spacing: -0.01em; }
+  .card span { font-size: 14.5px; color: var(--muted); line-height: 1.5; }
+  .pill {
+    display: inline-block; margin-top: 30px; background: var(--ink); color: #fff;
+    text-decoration: none; font-size: 16px; font-weight: 600;
+    padding: 15px 32px; border-radius: 999px;
+  }
+  .pill:hover { background: #333; }
+  .counter {
+    position: fixed; bottom: 18px; right: 20px; z-index: 5;
+    font-size: 12.5px; color: var(--muted); background: #fff;
+    border: 1px solid var(--line); border-radius: 999px; padding: 5px 13px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  }
+  .langtoggle {
+    position: fixed; top: 18px; right: 20px; z-index: 6;
+    font: 600 13.5px inherit; color: var(--ink); background: #fff; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 999px; padding: 8px 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  .langtoggle:hover { background: #fafafa; }
+  .scrollhint { margin-top: 34px; font-size: 13.5px; color: var(--faint); }
+  .credits-box {
+    margin-top: 48px; border-top: 1px solid var(--line); padding-top: 22px;
+    font-size: 12.5px; color: var(--faint); line-height: 1.8; max-width: 72ch;
+  }
+  .credits-box b { color: var(--muted); font-weight: 600; }
+  .credits-box a { color: var(--faint); }
+</style>
+
+<button class="langtoggle" id="langToggle">हिंदी में देखें</button>
+
+<main id="deck">
+
+<!-- 1 · Title -->
+<section>
+  <div class="wrap">
+    <span class="kicker" data-hi="ZEROLEAK — NEET के लिए live paper system">ZEROLEAK — a live paper system for NEET</span>
+    <h1 data-hi="वो exam paper जो leak हो ही नहीं सकता।">The exam paper that cannot leak.</h1>
+    <p class="lead" data-hi="चौबीस लाख students एक ही दोपहर NEET देते हैं। ZEROLEAK उस एक paper को चुराना नामुमकिन बना देता है — क्योंकि exam शुरू होने तक वो paper exist ही नहीं करता।">Twenty-four lakh students sit NEET on the same afternoon. ZEROLEAK makes the one paper they all face impossible to steal — because until the exam starts, it does not exist.</p>
+    <div class="hero">
+      <img src="img/vault-door.jpg" alt="Open bank vault door, 1967, black and white photograph">
+      <div class="credit">Bank vault, 1967 — Aldo Moisio, public domain (Wikimedia Commons)</div>
+    </div>
+    <div class="scrollhint" data-hi="आगे बढ़ने के लिए scroll करें या ↓ दबाएं">Scroll or press ↓ to continue</div>
+  </div>
+</section>
+
+<!-- 2 · The problem -->
+<section>
+  <div class="wrap">
+    <span class="kicker" data-hi="दिक्कत क्या है">The problem</span>
+    <h2 data-hi="आज का paper exam से हफ़्तों पहले बन जाता है।">Today's paper exists weeks before the exam.</h2>
+    <p class="lead" data-hi="Paper लिखा जाता है, छपता है, ट्रकों में पूरे देश में घूमता है, और strongroom में हफ़्तों पड़ा रहता है — exam से बहुत पहले। इतिहास का हर leak इसी लंबे इंतज़ार में कहीं न कहीं हुआ है।">The paper is written, printed, driven across the country in trucks, and parked in strongrooms — weeks before anyone sits the exam. Every leak in history happened somewhere in that long wait.</p>
+    <ul class="points">
+      <li data-hi="Exam के दिन से पहले सैकड़ों लोग paper को छूते हैं — छापने वाले, ड्राइवर, गार्ड, centre का staff.">Hundreds of people touch the paper before exam day — printers, drivers, guards, centre staff.</li>
+      <li data-hi="इस पूरी chain में कहीं भी एक phone camera काफ़ी है।">One phone camera anywhere in that chain is enough.</li>
+      <li data-hi="2024 में paper हज़ारीबाग़ के एक centre से leak हुआ — students के पास एक रात पहले ही पहुंच गया था।">In 2024, the paper leaked from a centre in Hazaribagh — students had it the night before.</li>
+    </ul>
+    <div class="hero">
+      <img src="img/press-room.jpg" alt="Printing press room of the New York Herald, early 1900s">
+      <div class="credit">Newspaper press room, early 1900s — Library of Congress, Bain Collection, public domain</div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 · The insight -->
+<section>
+  <div class="wrap">
+    <span class="kicker" data-hi="असली idea">The insight</span>
+    <h2 data-hi="इंतज़ार को zero कर दो। Paper 2 बजे पैदा होता है।">Make the wait zero. The paper is born at 2:00 PM.</h2>
+    <p class="lead" data-hi="बेहतर पहरेदारी नहीं — paper होता ही नहीं। Exam के पहले second तक कहीं कोई paper नहीं: ना draft, ना PDF, ना छपाई, ना trunk. जो चीज़ बनी ही नहीं, उसकी photo नहीं खींच सकते, ना उसे खरीद सकते हैं, ना चुरा सकते हैं।">Not better guarded — nonexistent. Until the first second of the exam there is no paper anywhere: no draft, no PDF, no print run, no trunk. You cannot photograph, buy, or steal a thing that has not been created yet.</p>
+    <ul class="points">
+      <li data-hi="2 बजे से पहले paper जानने वालों की गिनती: zero.">Before 2:00 PM, the number of people who know the paper is zero.</li>
+      <li data-hi="जब बचाने को कुछ है ही नहीं, तो leak होने को भी कुछ नहीं।">There is nothing to guard, so there is nothing to leak.</li>
+    </ul>
+    <div class="hero">
+      <img src="img/empty-desks.jpg" alt="Empty rows of desks in a lecture theatre">
+      <div class="credit">Empty lecture hall — Paul The Writer, CC0 (Wikimedia Commons)</div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 · How it reveals -->
+<section>
+  <div class="wrap">
+    <span class="kicker" data-hi="काम कैसे करता है">How it works</span>
+    <h2 data-hi="एक छोटी-सी key हर centre को एक ही second पर खोल देती है।">A tiny key unlocks every centre at the same second.</h2>
+    <p class="lead" data-hi="Centres को पहले से एक बंद डिब्बा मिल जाता है। उसे खोलने वाली key सिर्फ़ 2 बजे बनती है — और कई लोग मिलकर बनाते हैं, इसलिए कोई अकेला इंसान उसे पहले से जान ही नहीं सकता।">Centres get a locked box in advance. The key that opens it is only created at 2:00 PM — by several people at once, so no single person can ever know it early.</p>
+    <div class="cards">
+      <div class="card"><b data-hi="1. Question bank सबके सामने है">1. The question bank is public</b><span data-hi="पचास हज़ार approved questions, सबको पता। Bank जानने का मतलब बस syllabus जानना है — कोई shortcut नहीं।">Fifty thousand approved questions, known to everyone. Knowing the bank just means knowing the syllabus.</span></div>
+      <div class="card"><b data-hi="2. हर centre तक बंद डिब्बा पहुंचता है">2. A locked box reaches every centre</b><span data-hi="कुछ दिन पहले हर centre encrypted bank download कर लेता है। Key के बिना वो पढ़ा ही नहीं जा सकता, इसलिए लाने-ले जाने में कोई secrecy चाहिए ही नहीं।">Days early, each centre downloads the bank in encrypted form. Without the key it is unreadable, so transport needs no secrecy.</span></div>
+      <div class="card"><b data-hi="3. Key 2 बजे पैदा होती है">3. The key is born at 2:00 PM</b><span data-hi="नौ शहरों में नौ अधिकारी, हरेक के पास एक टुकड़ा। कोई भी पांच live camera पर अपने टुकड़े मिलाएं तो key बनती है। चार टुकड़ों से कुछ नहीं मिलता।">Nine officials in nine cities each hold a fragment. Any five combine theirs on live camera to make the key. Four fragments give you nothing.</span></div>
+      <div class="card"><b data-hi="4. हर screen एक साथ खुलती है">4. Every screen unlocks together</b><span data-hi="Key इतनी छोटी है कि एक SMS में आ जाए। Seconds में हर centre तक पहुंचती है, और पूरे भारत की हर screen पर paper एक ही पल में आ जाता है।">The key is tiny — it fits in one SMS. It reaches every centre in seconds and every screen in India shows the paper in the same instant.</span></div>
+    </div>
+    <div class="hero">
+      <img src="img/antenna-dish.jpg" alt="Large NASA communications dish antenna at Canberra">
+      <div class="credit">Deep-space communications dish, Canberra — NASA, public domain</div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 · Tracing -->
+<section>
+  <div class="wrap">
+    <span class="kicker" data-hi="फिर भी कोई कोशिश करे तो">If someone still tries</span>
+    <h2 data-hi="हर copy खुद बता देती है कि leak किसने किया।">Every copy points back to whoever leaked it.</h2>
+    <p class="lead" data-hi="हर centre को वही questions अपने अलग order में मिलते हैं, और text के अंदर अदृश्य fingerprints बुने होते हैं। Leaked photo या message को tracer में डालिए — seconds में centre, कमरा और seat तक बता देता है।">Each centre gets the same questions in its own order, with invisible fingerprints woven into the text. Paste a leaked photo or message into the tracer and it names the centre, the room, and the seat — in seconds.</p>
+    <ul class="points">
+      <li data-hi="ये fingerprints दोबारा type करने, screenshot और photo के बाद भी ज़िंदा रहते हैं।">The fingerprints survive retyping, screenshots, and photos.</li>
+      <li data-hi="वैसे भी exam के दौरान leak लगभग बेकार है — करोड़ों वाला paper तो पहले वाला था, और वो कभी बना ही नहीं।">A leak during the exam is nearly worthless anyway — the paper worth stealing was the early one, and that one never existed.</li>
+    </ul>
+    <div class="hero">
+      <img src="img/fingerprint-card.jpg" alt="Al Capone's FBI fingerprint card">
+      <div class="credit">Al Capone's fingerprint card, FBI — public domain</div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 · Exam day -->
+<section>
+  <div class="wrap">
+    <span class="kicker" data-hi="Exam वाला दिन">Exam day</span>
+    <h2 data-hi="Students के लिए लगभग कुछ नहीं बदलता।">For students, almost nothing changes.</h2>
+    <p class="lead" data-hi="सिर्फ़ इतना बदलता है कि questions कहां से आते हैं। Student जो-जो छूता है, सब वैसा का वैसा रहता है।">Only where the questions come from is different. Everything a student touches stays the same.</p>
+    <div class="cards">
+      <div class="card"><b data-hi="1:30 बजे — हमेशा की तरह बैठना">1:30 PM — seated as usual</b><span data-hi="ID check होता है, OMR answer sheets बंटती हैं। Screens पर लिखा होता है: “Sealed — अभी कोई paper exist नहीं करता।”">ID checks, OMR answer sheets handed out. Screens read "Sealed — no paper exists yet."</span></div>
+      <div class="card"><b data-hi="2:00 बजे — paper पैदा होता है">2:00 PM — the paper is born</b><span data-hi="Key ceremony live broadcast पर पूरी होती है और हर screen एक साथ जल उठती है।">The key ceremony finishes on live broadcast and every screen lights up at once.</span></div>
+      <div class="card"><b data-hi="2:00–5:20 — वही exam जो आज होता है">2:00–5:20 PM — same exam as today</b><span data-hi="Questions screen पर, answers उसी OMR sheet पर, उसी pencil से।">Questions on screen, answers bubbled on the same OMR paper sheet with the same pencil.</span></div>
+      <div class="card"><b data-hi="6:00 बजे — सब कुछ public">6:00 PM — everything published</b><span data-hi="पूरा paper और fairness proof सबके सामने रख दिया जाता है, ताकि कोई भी check कर सके कि कुछ भी rigged नहीं था।">The full paper and a fairness proof go public, so anyone can check nothing was rigged.</span></div>
+    </div>
+    <div class="hero">
+      <img src="img/exam-hall.jpg" alt="Exam hall with spaced rows of desks and students writing">
+      <div class="credit">Exam hall — Homayoon soleimani, CC0 (Wikimedia Commons)</div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 · Live demo -->
+<section>
+  <div class="wrap">
+    <span class="kicker" data-hi="Slide नहीं — चलता हुआ code">Not a slide — running code</span>
+    <h2 data-hi="Live देखिए।">See it live.</h2>
+    <p class="lead" data-hi="Exam schedule कीजिए और देखिए — तीन centre screens ठीक उसी second तक sealed रहती हैं जिस second paper पैदा होता है, फिर एक साथ खुल जाती हैं। कोई question copy करके tracer में डालिए, और देखिए वो बता देता है कि किस centre से आया।">Schedule an exam and watch three centre screens stay sealed until the very second the paper is born — then unlock together. Copy a question, paste it into the tracer, and watch it name the centre it came from.</p>
+    <a class="pill" href="/" data-hi="Live demo चलाएं">Launch live demo</a>
+    <div class="credits-box">
+      <b>Image credits.</b> All photographs are public domain or CC0, via Wikimedia Commons:
+      <a href="https://commons.wikimedia.org/wiki/File:Porta_caveau_banca_-_Bank_vault_door_-_1967.png">bank vault, 1967</a> (Aldo Moisio, PD) ·
+      <a href="https://commons.wikimedia.org/wiki/File:Newspaper_publishing_-_N.Y._Herald-_Corner_of_press_room_LCCN2004670982.jpg">N.Y. Herald press room</a> (Library of Congress, PD) ·
+      <a href="https://commons.wikimedia.org/wiki/File:Rows_of_Desks_in_Lecture_Theatre.jpg">lecture theatre</a> (Paul The Writer, CC0) ·
+      <a href="https://commons.wikimedia.org/wiki/File:Canberra_Deep_Dish_Communications_Complex_-_GPN-2000-000502.jpg">Canberra dish</a> (NASA, PD) ·
+      <a href="https://commons.wikimedia.org/wiki/File:Al_Capone%27s_fingerprint_card.jpg">fingerprint card</a> (FBI, PD) ·
+      <a href="https://commons.wikimedia.org/wiki/File:Exam_hall.jpg">exam hall</a> (Homayoon soleimani, CC0).
+      Full details in <code>img/CREDITS.md</code>.
+    </div>
+  </div>
+</section>
+
+</main>
+
+<div class="counter" id="counter">1 / 7</div>
+
+<script>
+  const deck = document.getElementById('deck');
+  const slides = [...document.querySelectorAll('section')];
+  const counter = document.getElementById('counter');
+
+  // Nearest slide to the current scroll position (slides can be taller than
+  // the viewport, so index cannot be derived from scrollTop / innerHeight).
+  function currentIndex() {
+    const pos = deck.scrollTop + innerHeight / 3;
+    let best = 0;
+    slides.forEach((s, i) => { if (s.offsetTop <= pos) best = i; });
+    return best;
+  }
+  deck.addEventListener('scroll', () => {
+    counter.textContent = (currentIndex() + 1) + ' / ' + slides.length;
+  }, { passive: true });
+
+  function goTo(i) {
+    const target = slides[Math.max(0, Math.min(i, slides.length - 1))];
+    deck.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
+  }
+  addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+      e.preventDefault(); goTo(currentIndex() + 1);
+    }
+    if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+      e.preventDefault(); goTo(currentIndex() - 1);
+    }
+  });
+
+  // Language toggle — English <-> everyday Hindi. English originals are
+  // stashed in data-en on first switch so toggling is lossless.
+  let hindi = false;
+  const toggle = document.getElementById('langToggle');
+  toggle.addEventListener('click', () => {
+    hindi = !hindi;
+    document.querySelectorAll('[data-hi]').forEach(el => {
+      if (!el.dataset.en) el.dataset.en = el.textContent;
+      el.textContent = hindi ? el.dataset.hi : el.dataset.en;
+    });
+    toggle.textContent = hindi ? 'View in English' : 'हिंदी में देखें';
+    document.documentElement.lang = hindi ? 'hi' : 'en';
+  });
+</script>
