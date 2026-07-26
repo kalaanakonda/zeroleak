@@ -1,5 +1,8 @@
 # Zeroleak — the exam paper that cannot leak
 
+**Status:** working proof-of-concept · MIT-licensed · zero dependencies. Not
+production software — see [what's real vs. simulated](#whats-real-vs-simulated).
+
 > A working prototype of an exam-delivery system where the question paper **does
 > not exist until the exam begins** — so there is nothing to steal, photograph,
 > or bribe out of a strongroom in the weeks beforehand.
